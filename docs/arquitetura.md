@@ -1,0 +1,157 @@
+## 5.9 Estimativa de Custos
+
+| Item | Informação |
+|---|---|
+| Ferramenta | AWS Pricing Calculator (calculadora oficial) |
+| Estimativa compartilhável | https://calculator.aws/#/estimate?id=6d6c46b6adfb03688a5634809a8aa207dafcab5a |
+| Exportação | [`docs/custos/estimativa.pdf`](custos/estimativa.pdf) |
+| Região | `sa-east-1` (São Paulo) |
+| Data da consulta de preços | 29/09/2026 |
+| Moeda | USD (sem impostos) |
+
+### 1. Premissas de uso
+
+Os volumes abaixo derivam dos requisitos não funcionais da seção 5.1 (atendimento das 11h00 às 14h30, pico de 10 a 30 usuários simultâneos).
+
+| Premissa | Valor adotado | Origem |
+|---|---|---|
+| Requisições à API | 100.000/mês | ~150 clientes/dia × ~20 chamadas por sessão (cardápio, pedido, status) + painel da cozinha, arredondado para cima |
+| Duração média da Lambda | 300 ms | Consultas JPA simples ao Aurora com a função aquecida |
+| Memória da Lambda | 1.536 MB | Mínimo confortável para JVM + Spring Boot (mais memória também significa mais CPU na Lambda) |
+| Capacidade do Aurora | 1 ACU na calculadora (mínimo real: 0,5 ACU) | A calculadora não aceita ACU fracionado; o valor é conservador |
+| Armazenamento do Aurora | 1 GB | Tabelas de usuários, cardápio, ingredientes e pedidos |
+| Build do Angular no S3 | 1 GB | O build real tem poucos MB; valor com folga |
+| Logs (CloudWatch) | 1 GB/mês | Logs da Lambda |
+| Segredos | 2 | Senha do banco e `SECRET_KEY` do JWT |
+| Aquecimento (EventBridge) | ~1.300 invocações/mês | Ping a cada 5 min, das 10h50 às 14h30, 30 dias |
+
+### 2. Cenário A: operação contínua (730 h/mês)
+
+Valores retirados da estimativa exportada ([`docs/custos/estimativa.pdf`](custos/estimativa.pdf)):
+
+| # | Serviço | Configuração | US$/mês | % do total |
+|---|---|---|---:|---:|
+| 1 | Amazon Aurora MySQL Serverless v2 | 1 ACU × 730 h (US$ 0,25/ACU-h) + 1 GB | **183,43** | 71,4% |
+| 2 | Amazon VPC: NAT Gateway | 1 NAT em 1 AZ × 730 h (US$ 0,093/h) + 1 GB processado | **67,98** | 26,5% |
+| 3 | Amazon VPC: IPv4 público | 1 Elastic IP do NAT × 730 h (US$ 0,005/h) | 3,65 | 1,4% |
+| 4 | Amazon CloudWatch | 1 GB de logs/mês | 0,91 | 0,4% |
+| 5 | AWS Secrets Manager | 2 segredos | 0,80 | 0,3% |
+| 6 | Amazon API Gateway | HTTP API, 100 mil requisições/mês | 0,16 | 0,1% |
+| 7 | Amazon S3 | 1 GB + 21 mil requisições | 0,06 | < 0,1% |
+| 8 | AWS Lambda | 100 mil req × 300 ms × 1.536 MB | 0,00 | nível gratuito |
+| 9 | Amazon CloudFront | Plano gratuito (tarifa fixa) | 0,00 | nível gratuito |
+| 10 | Amazon EventBridge Scheduler | Aquecimento agendado | 0,00 | nível gratuito |
+| | **Total mensal** | | **256,99** | 100% |
+| | **Total em 12 meses** | | **3.083,88** | |
+
+**Item mais caro: Amazon Aurora Serverless v2 (US$ 183,43/mês, 71% do total)**, seguido pelo **NAT Gateway (US$ 71,63/mês com o IPv4, 28%)**. Os dois juntos representam 99% do custo; os serviços serverless de borda e computação (CloudFront, API Gateway, Lambda) custam praticamente zero no volume do restaurante.
+
+Observações sobre a calculadora:
+- O Aurora foi estimado com 1 ACU porque a calculadora não aceita 0,5 ACU. Com o mínimo real de 0,5 ACU ligado 24h, o custo de computação cai para US$ 91,25/mês.
+- A calculadora exige o preenchimento do campo "NAT Gateway regional"; foi usado 1 gateway em 1 AZ, cujo preço (US$ 0,093/h) é idêntico ao do NAT Gateway zonal da arquitetura.
+- O campo do EventBridge Scheduler só aceita milhões inteiros; foi usado 1 milhão (o uso real, ~1.300 invocações, fica dentro das 14 milhões gratuitas).
+
+### 3. Cenário B: período de trabalho da Entrega 2 (05/10 a 23/11/2026)
+
+Este é o valor que o grupo efetivamente pagará. A calculadora só estima meses cheios (730 h), por isso o cenário B usa os **preços por hora obtidos na própria calculadora** multiplicados pelas horas previstas.
+
+**Estratégia de operação no período:**
+- O ambiente é criado uma vez pelo Terraform e **permanece existindo** até a apresentação.
+- O Aurora fica com **auto-pause** (mínimo 0 ACU): só cobra computação quando há conexões ativas.
+- O NAT Gateway é **criado apenas nas sessões que precisam dele** (validação do fluxo 3, ensaio e apresentação), via variável `enable_nat`. A aplicação funciona sem o NAT, pois a Lambda só acessa o Aurora dentro da VPC.
+- O aquecimento agendado fica **desligado** (só faz sentido na operação real do restaurante).
+
+**Horas previstas:**
+
+| Atividade | Sessões | Horas com Aurora ativo | Horas com NAT |
+|---|---:|---:|---:|
+| Desenvolvimento e testes da aplicação | 8 × 5 h | 40 | 0 |
+| Testes de segurança e do fluxo 3 (NAT) | 2 × 4 h | 8 | 8 |
+| Ensaio da apresentação | 1 × 3 h | 3 | 1 |
+| Apresentação (23/11) | 1 × 2 h | 2 | 1 |
+| Margem para imprevistos | | 7 | 0 |
+| **Total** | | **60** | **10** |
+
+**Custo do período:**
+
+| Item | Preço unitário (calculadora) | Quantidade | Custo (US$) |
+|---|---|---:|---:|
+| Aurora: computação | US$ 0,25/ACU-h × 0,5 ACU = US$ 0,125/h | 60 h | 7,50 |
+| Aurora: armazenamento e E/S | ≈ US$ 0,93/mês | ~1,7 mês | 1,58 |
+| NAT Gateway | US$ 0,093/h (cobrado por hora iniciada) | 10 h | 0,93 |
+| NAT Gateway: dados processados | US$ 0,093/GB | 1 GB | 0,09 |
+| IPv4 público do NAT | US$ 0,005/h | 10 h | 0,05 |
+| Secrets Manager | US$ 0,40/segredo/mês | 2 × ~1,7 mês | 1,36 |
+| API Gateway, S3, CloudWatch | valores proporcionais ao uso de teste | — | ~0,50 |
+| Lambda, CloudFront, EventBridge | nível gratuito | — | 0,00 |
+| **Total estimado do período** | | | **≈ 12,01** |
+
+O valor corresponde a cerca de **10% do crédito disponível** na conta (seção "Nível gratuito" abaixo).
+
+### 4. Proposta de redução do item mais caro
+
+**Item:** Amazon Aurora Serverless v2.
+
+**Proposta:** configurar o Aurora com **auto-pause** (`min_capacity = 0`, `seconds_until_auto_pause = 300`) e operar o banco **apenas no horário do restaurante**, com um aquecimento agendado às 10h50 pelo EventBridge Scheduler. Fora do horário, o banco pausa e só o armazenamento é cobrado.
+
+| Configuração do Aurora | Horas ativas/mês | US$/mês (computação) |
+|---|---:|---:|
+| Cenário A da calculadora (1 ACU × 730 h) | 730 | 182,50 |
+| Mínimo real ligado 24h (0,5 ACU × 730 h) | 730 | 91,25 |
+| **Proposta: auto-pause + operação 10h50–14h30** (~4 h/dia × 30 dias, média de ~0,7 ACU) | ~120 | **≈ 21,00** |
+
+| Total da arquitetura | US$/mês |
+|---|---:|
+| Cenário A (calculadora) | 256,99 |
+| Cenário A com a proposta aplicada ao Aurora | ≈ 95,50 |
+| Cenário A com a proposta + NAT criado sob demanda | ≈ 24,00 |
+
+**Redução: de US$ 183,43 para cerca de US$ 21/mês no Aurora (−88%).**
+
+**O que se perde com a redução:**
+- **Latência na retomada:** o Aurora leva ~15 s para acordar (mais se ficar pausado por mais de 24 h). Somado ao cold start da Lambda, a primeira requisição pode passar do limite de 30 s do API Gateway e falhar. Isso exige o aquecimento agendado antes do almoço.
+- **Complexidade operacional:** a pausa só ocorre sem conexões abertas; é necessário configurar `wait_timeout` no parameter group e um pool pequeno no Spring (Hikari com `minimum-idle = 0`), senão a Lambda mantém conexões e o banco nunca pausa.
+- **Uso fora do horário fica lento:** um pedido feito às 16h, por exemplo, encontra o banco pausado e espera a retomada.
+- **Se o NAT for criado sob demanda:** a sub-rede privada fica sem saída para a internet fora das janelas de manutenção (o fluxo 3 deixa de estar disponível permanentemente).
+
+### 5. Nível gratuito
+
+**Na calculadora:**
+
+| Serviço | Nível gratuito considerado? | Detalhe |
+|---|---|---|
+| AWS Lambda | Sim | Opção "Incluir nível gratuito" (1 milhão de requisições e 400.000 GB-s/mês, sempre gratuitos); o uso estimado (~45.000 GB-s) fica dentro do limite |
+| Amazon CloudFront | Sim | Plano gratuito de tarifa fixa |
+| Amazon EventBridge Scheduler | Sim, na prática | 14 milhões de invocações/mês gratuitas; o uso real é ~1.300 |
+| Aurora, NAT, IPv4, S3, API Gateway, Secrets Manager, CloudWatch | Não | A calculadora exclui os descontos do nível gratuito nesses serviços |
+
+**Na conta:** a conta usada pelo grupo está no **AWS Free plan**, com **US$ 120,00 de crédito, válido até 22/01/2027**. Os créditos cobrem integralmente o cenário B (≈ US$ 12) e o prazo inclui a apresentação de 23/11/2026. O Aurora Serverless v2 (MySQL) e o NAT Gateway não têm nível gratuito e consomem crédito desde a primeira hora.
+
+**Risco associado:** no Free plan, quando o crédito acaba, a AWS suspende os serviços. Com NAT e Aurora ligados 24h (~US$ 0,22/h), o crédito se esgotaria em cerca de 22 dias, o que derrubaria o ambiente antes da apresentação. Esse risco é tratado pelo plano abaixo.
+
+### 6. Plano de controle de custos
+
+| Controle | Implementação | Momento |
+|---|---|---|
+| Alertas de orçamento | AWS Budgets com alertas por e-mail para o grupo em US$ 10, US$ 30 e US$ 60 (valor real e previsto) | Criado manualmente no console **antes do primeiro `terraform apply`** (exceção permitida pelo enunciado) |
+| Tags em todos os recursos | `default_tags` no provider AWS do Terraform: `projeto = "dove"`, `grupo = "<grupo>"`, `ambiente = "entrega2"`, `gerenciado-por = "terraform"` | Desde o primeiro `apply` |
+| Rastreio de custo por tag | Ativação das tags como *cost allocation tags* em Billing | Após o primeiro `apply` |
+| NAT sob demanda | Variável `enable_nat` (padrão `false`); scripts `nat-on.sh` / `nat-off.sh` executam `terraform apply -var enable_nat=true/false` | Toda sessão que usar o NAT termina com `nat-off.sh` |
+| Banco com pausa automática | Aurora com `min_capacity = 0` e `seconds_until_auto_pause = 300` | Permanente |
+| Aquecimento desligado | Variável `enable_warmup = false` durante a Entrega 2 | Ligado apenas para demonstrar o cenário de operação |
+| Nada criado no console | Toda mudança de infraestrutura via Terraform, para não haver recurso "esquecido" fora do state | Permanente |
+| Destruição final | `terraform destroy` completo após a apresentação | 23/11/2026 |
+
+### 7. Estratégia adotada: destruir e recriar × manter o ambiente
+
+| Opção | Custo | Esforço | Decisão |
+|---|---|---|---|
+| Destruir tudo entre sessões | Menor custo de computação, mas o Aurora recriado leva 10–15 min e **perde os dados** (exigiria restaurar snapshot a cada sessão) | Alto | Descartada |
+| **Manter o ambiente e destruir só o NAT entre sessões** | ~US$ 1–2/mês com o ambiente parado (armazenamento do Aurora e segredos) + horas de uso | Baixo | **Adotada** |
+| Manter tudo ligado 24h | ~US$ 257/mês pela calculadora; esgotaria o crédito em semanas | Nenhum | Descartada |
+
+**Justificativa:** como os componentes serverless (Lambda, API Gateway, CloudFront, S3) não cobram quando ociosos e o Aurora pausa sozinho, manter o ambiente criado custa quase nada. O único recurso que cobra por hora de existência é o NAT Gateway, e por isso ele é o único criado e destruído a cada sessão, por script Terraform.
+
+**Trade-off aceito:** o grupo precisa manter a disciplina de executar `nat-off.sh` ao fim de cada sessão (um dia esquecido custa ~US$ 2,35), e a primeira requisição de cada sessão é lenta por causa da retomada do Aurora. Para que recriar partes do ambiente não exija reinstalação manual, o deploy da aplicação é automatizado: o pacote da Lambda é publicado pelo Terraform, e o front é publicado por script (`aws s3 sync` + invalidação do CloudFront).
+
+
