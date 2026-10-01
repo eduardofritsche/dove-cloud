@@ -153,9 +153,13 @@ Associado ao cluster Amazon Aurora Serverless v2 na sub-rede privada `priv-a` (e
 
 ---
 
-## 5.7 Dimensionamento de Recursos
+## 5.7 Dimensionamento das Instâncias
 
-*(Seção a ser preenchida pelo grupo com a declaração do dimensionamento dos componentes serverless)*
+*(Não aplicável / Cancelado com anuência do professor)*
+
+Conforme autorizado pelo professor Gildomiro Bairros, o projeto adota uma arquitetura **100% Serverless**, dispensando o provisionamento e a manutenção de máquinas virtuais (sem instâncias Amazon EC2 para aplicação, banco de dados ou Bastion Host).
+
+Dessa forma, o dimensionamento tradicional de hardware de instâncias (famílias de CPU, quantidade de vCPU, memória RAM de sistema operacional e tipos de discos EBS) **não se aplica** a esta infraestrutura. A computação do backend é executada sob demanda pela AWS Lambda e a capacidade relacional escala automaticamente em frações de ACUs no Amazon Aurora Serverless v2.
 
 ---
 
