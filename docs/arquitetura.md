@@ -154,4 +154,31 @@ O valor corresponde a cerca de **10% do crédito disponível** na conta (seção
 
 **Trade-off aceito:** o grupo precisa manter a disciplina de executar `nat-off.sh` ao fim de cada sessão (um dia esquecido custa ~US$ 2,35), e a primeira requisição de cada sessão é lenta por causa da retomada do Aurora. Para que recriar partes do ambiente não exija reinstalação manual, o deploy da aplicação é automatizado: o pacote da Lambda é publicado pelo Terraform, e o front é publicado por script (`aws s3 sync` + invalidação do CloudFront).
 
+---
+
+## 5.10 Riscos e Limitações
+
+A arquitetura baseline adotada para a Entrega 1 prioriza baixo custo operacional, simplicidade de manutenção e conformidade com o crédito disponível na AWS (US$ 120,00). Essa abordagem deliberada introduz limitações e pontos únicos de falha conhecidos, que servirão como base de comparação para a proposta de Alta Disponibilidade da Entrega 2:
+
+### 1. Instância Writer Única do Aurora em Zona Única (`sa-east-1a`)
+- **Descrição da limitação:** Para manter a infraestrutura de banco de dados econômica, o cluster Amazon Aurora Serverless v2 possui apenas uma única instância writer alocada na zona de disponibilidade `sa-east-1a` (sub-rede `priv-a`). Embora o *DB Subnet Group* englobe `priv-b` (em `sa-east-1b`), nenhuma réplica de leitura ou instância standby está ativa nesta segunda zona.
+- **Impacto:** Caso ocorra uma falha física, energética ou de conectividade na AZ `sa-east-1a` da AWS em São Paulo, o banco de dados ficará completamente indisponível. A aplicação não conseguirá realizar leituras ou escritas.
+- **Tempo e forma de recuperação:** Exige intervenção manual ou acionamento do Terraform para provisionar uma nova instância writer na zona `sa-east-1b` a partir do storage distribuído subjacente do Aurora (RTO estimado: ~10 a 15 minutos).
+- **Tratamento na Entrega 2:** Este ponto único de falha será o ponto central da proposta de Alta Disponibilidade da Entrega 2, onde será avaliada a inclusão de réplicas de leitura multi-AZ com failover automático.
+
+### 2. Latência de Retomada do Aurora Pausado (0 ACU) somada ao Cold Start da Lambda
+- **Descrição da limitação:** Conforme definido no ADR-003 e na Seção 5.9, o cluster Aurora Serverless v2 opera com auto-pause (`min_capacity = 0`, pausa após 5 minutos sem conexões). Quando o banco está pausado, o restabelecimento da camada computacional leva cerca de 15 segundos. Se essa primeira chamada coincidir com uma execução a frio (*cold start*) da função AWS Lambda em Java/Spring Boot (~8 a 10 segundos para carregar JVM e beans JPA), o tempo total de resposta acumulado pode atingir de 23 a 28 segundos.
+- **Impacto:** Risco de expirar o limite rígido de timeout de 30 segundos do Amazon API Gateway, retornando erro `HTTP 504 Gateway Timeout` para o primeiro cliente que acessar o sistema após um período de inatividade.
+- **Mitigação aplicada:** Durante o horário operacional do restaurante (11h00 às 14h30), uma regra do Amazon EventBridge Scheduler dispara pings periódicos a partir das 10h50 para manter o banco acordado e a função aquecida. No entanto, chamadas esporádicas fora desse turno continuam sujeitas a essa latência perceptível.
+
+### 3. Ausência Temporária de Rota de Saída (Egress) com o NAT Gateway Destruído
+- **Descrição da limitação:** O AWS NAT Gateway cobra um valor fixo de ~US$ 0,093/hora (~US$ 71,63/mês com o IPv4 público) independentemente do volume de tráfego. Para não esgotar os créditos da conta durante o período de desenvolvimento da Entrega 2 (Cenário B da Seção 5.9), o NAT Gateway permanecerá destruído na maior parte do tempo, sendo provisionado via Terraform (`enable_nat = true`) exclusivamente nas janelas de teste de saída e apresentações.
+- **Impacto:** Em todas as sessões em que o NAT Gateway estiver destruído, a função Lambda na sub-rede privada não terá nenhuma conectividade de saída com a internet pública (`0.0.0.0/0`). Qualquer funcionalidade que venha a depender de chamadas a serviços externos à VPC (como gateways de pagamento, APIs externas ou envio de e-mails) falhará por falta de rota.
+- **Trade-off aceito:** A conectividade interna com o Aurora (`priv-a`) continua operando normalmente pela rota local da VPC (`10.20.0.0/16`), permitindo que testes da aplicação sejam realizados sem gerar o custo fixo do NAT.
+
+### 4. Dependência Exclusiva da Gestão de Credenciais IAM (Sem Acesso Shell/SSH)
+- **Descrição da limitação:** A escolha deliberada por não utilizar Bastion Host nem portas abertas (ADR-001) elimina o vetor de ataque via SSH, mas concentra 100% da governança de segurança na gestão de credenciais do AWS IAM.
+- **Impacto:** A equipe não possui acesso interativo via terminal às máquinas subjacentes da Lambda ou do Aurora. Qualquer diagnóstico operacional ou investigação de falhas depende estritamente da ingestão correta de logs no Amazon CloudWatch e de métricas do console. Além disso, o comprometimento da chave de acesso IAM ou da sessão de console de qualquer integrante concede privilégios diretos sobre a infraestrutura na nuvem, demandando aplicação rigorosa de senhas fortes e MFA em todas as contas.
+
+
 
