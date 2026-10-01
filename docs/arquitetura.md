@@ -108,7 +108,42 @@ A solução é dividida em três camadas estruturadas:
 
 ## 5.5 Matriz de Regras de Segurança
 
-*(Seção a ser preenchida pelo grupo com a definição dos Security Groups e portas)*
+A segurança e o isolamento de rede da arquitetura são implementados na camada de rede por meio de **Security Groups da AWS** (*stateful firewalls*). Seguindo o princípio do menor privilégio, apenas portas estritamente necessárias estão liberadas e todo tráfego não explicitamente autorizado é descartado por padrão (*default deny*).
+
+Nesta arquitetura serverless, os Security Groups são aplicados exclusivamente aos recursos que possuem interfaces de rede dentro da VPC: as **ENIs da AWS Lambda** e o **cluster Amazon Aurora Serverless v2**. Os serviços de borda (CloudFront, S3 e API Gateway) operam fora da VPC com proteção gerenciada pela própria AWS.
+
+---
+
+### 1. Grupo de Segurança da API Lambda (`sg-lambda`)
+Associado às interfaces de rede elásticas (ENIs) da função Lambda distribuídas entre as sub-redes privadas `priv-a` e `priv-b`:
+
+| Direção | Tipo / Protocolo | Portas | Origem / Destino | Justificativa |
+|---|---|---|---|---|
+| **Inbound** (Entrada) | — | — | *Nenhuma regra* | A Lambda não aceita conexões de entrada de rede diretas. A invocação é realizada pelo Amazon API Gateway através da infraestrutura interna gerenciada do plano de controle da AWS (permissão IAM `lambda:InvokeFunction`). |
+| **Outbound** (Saída) | TCP | 3306 | `sg-db` *(referência por ID)* | Permite que a API Spring Boot (via Hibernate / JPA) envie consultas e comandos SQL ao cluster Aurora Serverless v2. |
+| **Outbound** (Saída) | TCP | 443 | `0.0.0.0/0` | Permite conexões de saída seguras (HTTPS) roteadas pelo NAT Gateway, necessárias para integrações externas e chamadas de APIs. |
+| **Outbound** (Saída) | UDP/TCP | 53 | `10.20.0.2` | Resolução de nomes DNS internos da VPC (*AmazonProvidedDNS*), indispensável para resolver o endpoint DNS do Aurora (`*.rds.amazonaws.com`). |
+
+---
+
+### 2. Grupo de Segurança do Banco de Dados (`sg-db`)
+Associado ao cluster Amazon Aurora Serverless v2 na sub-rede privada `priv-a` (e grupo de sub-redes em `priv-b`):
+
+| Direção | Tipo / Protocolo | Portas | Origem / Destino | Justificativa |
+|---|---|---|---|---|
+| **Inbound** (Entrada) | TCP | 3306 | `sg-lambda` *(referência por ID)* | Permite conexões SQL originadas **exclusivamente** pelas execuções autenticadas da função Lambda. Bloqueia qualquer outra origem dentro ou fora da VPC. |
+| **Outbound** (Saída) | — | — | *Nenhuma regra* | O banco de dados relacional opera de forma passiva, apenas respondendo às requisições recebidas da aplicação. Ele não inicia conexões de saída para a rede externa. |
+
+---
+
+### Conformidade com as Regras Obrigatórias do Edital
+
+1. **SSH nunca liberado para `0.0.0.0/0` (Inexistência da porta 22):**
+   - Em conformidade com o **ADR-001**, a arquitetura eliminou o Bastion Host e as máquinas virtuais convencionais. Consequentemente, **a porta 22 (SSH) não existe e não está aberta em nenhum Security Group** do projeto, eliminando qualquer superfície de ataque por força bruta ou vazamento de chaves privadas SSH.
+2. **Isolamento por Referência a Security Group (Sem IPs Estáticos):**
+   - O grupo `sg-db` não utiliza faixas de IP ou blocos CIDR para autorizar acesso; ele referencia diretamente o identificador do grupo `sg-lambda`. Isso garante que, mesmo que os endereços IP privados das ENIs da Lambda variem dinamicamente durante escalonamentos, apenas o tráfego legítimo da função terá acesso ao MySQL.
+3. **Saída Restrita (*Egress Filtering*):**
+   - Em vez de liberar saída irrestrita para qualquer porta (`0.0.0.0/0 ALL`), as regras de saída da Lambda estão restritas estritamente às portas de negócio (3306 para o banco, 443 para HTTPS e 53 para DNS), atendendo aos critérios de menor privilégio.
 
 ---
 
