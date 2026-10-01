@@ -1,3 +1,147 @@
+# Documento de Arquitetura e Decisões de Infraestrutura
+
+**Projeto:** Dove Restaurante — Sistema de Gestão do Restaurante Dove  
+**Disciplina:** Projeto Integrador | Uniamérica Descomplica  
+**Professor:** Gildomiro Bairros  
+**Provedor de Nuvem:** Amazon Web Services (AWS)  
+**Região:** `sa-east-1` (São Paulo)  
+
+---
+
+## 5.1 Descrição da Aplicação
+
+### 1. Problema que a aplicação resolve
+O **Dove Restaurante** foi desenvolvido para atender às necessidades operacionais específicas do restaurante **Dove**, resolvendo gargalos no seu fluxo de atendimento diário:
+- Desorganização e risco de perda de pedidos causados pelo uso de comandas físicas em papel;
+- Falta de sincronização em tempo real entre o atendimento/salão e a equipe de cozinha;
+- Dificuldade na gestão do cardápio diário, que varia conforme o dia e a disponibilidade de insumos;
+- Ausência de rastreamento do tempo de preparo dos pratos e das marmitas montadas para os clientes.
+
+A aplicação centraliza o fluxo de operação do restaurante Dove: o cliente ou atendente visualiza as opções do cardápio daquele dia específico, faz o pedido com os pratos e marmitas desejados, e a cozinha recebe e atualiza o status de início e conclusão do preparo em tempo real.
+
+---
+
+### 2. Perfis de Usuários
+O sistema adota Controle de Acesso Baseado em Papéis (*Role-Based Access Control* - RBAC) através do atributo `TipoUsuario`:
+
+1. **Cliente (`CLIENTE`):**
+   - Visualiza o cardápio do dia;
+   - Realiza novos pedidos de refeições e marmitas;
+   - Consulta o histórico e o status atual do seu pedido ("Meus Pedidos");
+   - Mantém seus dados de cadastro e senha.
+
+2. **Funcionário (`FUNCIONARIO`):**
+   - Acompanha os pedidos em andamento na cozinha por ordem de chegada;
+   - Registra o início e o término do preparo de cada pedido (`hora_inicio` e `hora_fim`);
+   - Configura o cardápio do dia vinculando os pratos e marmitas aos ingredientes disponíveis;
+   - Gerencia a lista de ingredientes utilizados no restaurante.
+
+3. **Administrador (`ADMIN`):**
+   - Gerencia os usuários e funcionários do sistema (cadastro, perfis e permissões);
+   - Acompanha o fluxo geral das operações e pedidos do restaurante.
+
+---
+
+### 3. Funcionalidades Principais
+- **Autenticação Segura:** Login baseado em JSON Web Token (JWT) stateless com senhas criptografadas em BCrypt.
+- **Cardápio Diário:** Cadastro e consulta do cardápio específico para cada data, associado aos ingredientes do dia (`tb_cardapio` e `tb_cardapio_ingrediente`).
+- **Controle de Ingredientes:** Cadastro e manutenção dos insumos utilizados nas preparações (`tb_ingrediente`).
+- **Gestão de Pedidos:** Registro completo de pedidos (`tb_pedido`), permitindo acompanhar a evolução do atendimento com marcação de horários de início e finalização do preparo pela equipe de cozinha.
+
+---
+
+### 4. Componentes Técnicos da Solução
+A solução é dividida em três camadas estruturadas:
+
+1. **Frontend Web (`dove-integrador-web`):**
+   - Single Page Application (SPA) desenvolvida em **Angular 19** com componentes visuais do **MDB Angular UI Kit**;
+   - Hospedada de forma estática no **Amazon S3** e distribuída globalmente com HTTPS pelo **Amazon CloudFront**;
+   - O CloudFront atua como ponto único de entrada, roteando requisições estáticas (`/*`) para o S3 e chamadas de API (`/api/*`) para o API Gateway.
+
+2. **Backend API (`dove-integrador-api`):**
+   - API RESTful em **Java 17** com framework **Spring Boot 3.5.4** e Spring Data JPA;
+   - Executada de forma serverless como função **AWS Lambda** acoplada às sub-redes privadas da VPC;
+   - Ouvindo e respondendo às requisições REST encaminhadas pelo **Amazon API Gateway** (HTTP API).
+
+3. **Banco de Dados Relacional:**
+   - **Amazon Aurora Serverless v2 (compatível com MySQL 8.0)**, escutando na porta padrão `3306`;
+   - Localizado em sub-rede privada, sem IP público e sem exposição direta para a internet;
+   - Acesso estritamente restrito através do Security Group `sg-db`, permitindo tráfego apenas a partir do Security Group da Lambda (`sg-lambda`).
+
+---
+
+### 5. Requisitos Não Funcionais Assumidos
+- **Carga e Concorrência Estimada:**
+  - O restaurante Dove opera em horário de almoço, com **atendimento exclusivamente das 11h00 às 14h30**;
+  - Estimativa de carga de pico: **10 a 30 usuários simultâneos** no intervalo de maior movimento (entre 12h00 e 13h30);
+  - Volume de tráfego estimado: baixa vazão, em torno de 2 a 5 requisições por segundo (RPS) em média, totalizando cerca de 100.000 requisições mensais.
+  - Fora desse horário operacional, a arquitetura usufrui do *scale-to-zero* dos componentes serverless (Lambda e Aurora com auto-pause), garantindo custo computacional quase nulo.
+
+- **Disponibilidade Esperada:**
+  - **Baseline (Entrega 1 e 2):** Instância writer única do Aurora na zona `sa-east-1a`. A arquitetura inicial **não oferece Alta Disponibilidade ativa no banco de dados**, decisão deliberada para conter custos e manter o ambiente dimensionado de forma realista para o escopo do projeto acadêmico.
+  - **Alta Disponibilidade (Planejamento conceitual para Entrega 2):** Como requisito da Entrega 2, será documentada a proposta de expansão com réplica de leitura do Aurora e failover multi-AZ automático.
+
+- **Isolação e Segurança:**
+  - Ponto de entrada público blindado via CloudFront com HTTPS obrigatório (porta 443);
+  - Camada de aplicação e banco de dados isoladas em sub-redes privadas sem IP público;
+  - Tráfego interno restrito por regras de Security Group da AWS.
+
+---
+
+## 5.2 Diagrama de Arquitetura
+
+*(Seção a ser preenchida pelo grupo com a referência e descrição dos fluxos do diagrama em `docs/diagramas/`)*
+
+---
+
+## 5.3 Plano de Endereçamento IP
+
+*(Seção a ser preenchida pelo grupo com a tabela de sub-redes e justificativas de endereçamento)*
+
+---
+
+## 5.4 Tabelas de Rota
+
+*(Seção a ser preenchida pelo grupo com os destinos e alvos das tabelas de rota pública e privada)*
+
+---
+
+## 5.5 Matriz de Regras de Segurança
+
+*(Seção a ser preenchida pelo grupo com a definição dos Security Groups e portas)*
+
+---
+
+## 5.6 Tecnologias
+
+*(Seção a ser preenchida pelo grupo com a tabela de tecnologias, versões e justificativas)*
+
+---
+
+## 5.7 Dimensionamento de Recursos
+
+*(Seção a ser preenchida pelo grupo com a declaração do dimensionamento dos componentes serverless)*
+
+---
+
+## 5.8 Registros de Decisão Arquitetural (ADRs)
+
+As decisões arquiteturais obrigatórias da Entrega 1 foram registradas no formato Y-statement e encontram-se detalhadas individualmente na pasta [`docs/adr/`](adr/):
+
+1. **[ADR-001: Estratégia de Acesso Administrativo](adr/001-acesso-administrativo.md)**
+   - *Decisão:* Acesso baseado exclusivamente em **AWS IAM** operado via Terraform e AWS CLI, descartando soluções via SSH (Bastion Host e SSM).
+   - *Consequência aceita:* A segurança do ambiente passa a depender inteiramente das credenciais IAM de cada integrante.
+
+2. **[ADR-002: Saída para a Internet da Sub-rede Privada](adr/002-saida-internet-subrede-privada.md)**
+   - *Decisão:* Adoção de **NAT Gateway gerenciado** em sub-rede pública criado e destruído sob demanda via Terraform, descartando NAT em EC2 (fck-nat) e VPC Endpoints.
+   - *Consequência aceita:* Custo fixo alto cobrado por hora mesmo sem uso, exigindo criá-lo apenas durante testes do fluxo 3 e destruí-lo em seguida.
+
+3. **[ADR-003: Localização do Banco de Dados](adr/003-localizacao-banco.md)**
+   - *Decisão:* Utilização do **Amazon Aurora MySQL Serverless v2** (faixa de 0 a 2 ACUs com auto-pause após 5 min) na sub-rede privada `priv-a`, descartando RDS for MySQL e instâncias EC2.
+   - *Consequência aceita:* Ausência de nível gratuito, latência de ~15 segundos na retomada após a pausa (exigindo aquecimento agendado) e writer único em `sa-east-1a` como ponto único de falha.
+
+---
+
 ## 5.9 Estimativa de Custos
 
 | Item | Informação |
