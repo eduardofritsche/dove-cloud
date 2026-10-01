@@ -180,5 +180,12 @@ A arquitetura baseline adotada para a Entrega 1 prioriza baixo custo operacional
 - **Descrição da limitação:** A escolha deliberada por não utilizar Bastion Host nem portas abertas (ADR-001) elimina o vetor de ataque via SSH, mas concentra 100% da governança de segurança na gestão de credenciais do AWS IAM.
 - **Impacto:** A equipe não possui acesso interativo via terminal às máquinas subjacentes da Lambda ou do Aurora. Qualquer diagnóstico operacional ou investigação de falhas depende estritamente da ingestão correta de logs no Amazon CloudWatch e de métricas do console. Além disso, o comprometimento da chave de acesso IAM ou da sessão de console de qualquer integrante concede privilégios diretos sobre a infraestrutura na nuvem, demandando aplicação rigorosa de senhas fortes e MFA em todas as contas.
 
+---
+
+## 5.11 Declaração de Uso de Ferramentas de IA
+
+O uso de inteligência artificial generativa no planejamento, modelagem e documentação da infraestrutura do projeto está formalizado em conformidade com as diretrizes da disciplina no arquivo [`IA.md`](../IA.md), localizado na raiz deste repositório. O documento declara detalhadamente as ferramentas consultadas, o escopo de atuação e as correções e validações críticas conduzidas pela equipe técnica.
+
+
 
 
