@@ -102,7 +102,91 @@ A solução é dividida em três camadas estruturadas:
 
 ## 5.4 Tabelas de Rota
 
-*(Seção a ser preenchida pelo grupo com os destinos e alvos das tabelas de rota pública e privada)*
+### Visão geral
+
+A VPC `vpc-dove` usa duas tabelas de rota personalizadas, além da tabela principal (*main route table*) criada automaticamente pela AWS:
+
+| Tabela | Nome | Sub-redes associadas | Função |
+|---|---|---|---|
+| Pública | `rt-public` | `pub-a` | Dá à sub-rede pública saída direta para a internet pelo Internet Gateway |
+| Privada | `rt-private` | `priv-a`, `priv-b` | Mantém as sub-redes privadas sem rota de entrada da internet; a saída, quando habilitada, passa pelo NAT Gateway |
+| Principal (padrão da VPC) | `rt-main` | nenhuma (associação explícita em todas as sub-redes) | Contém apenas a rota `local`. Se uma sub-rede nova for criada sem associação, ela fica isolada por padrão |
+
+Toda tabela de rota da AWS contém automaticamente a rota `local` para o CIDR da VPC, que não pode ser removida. É ela que permite a comunicação entre sub-redes de zonas de disponibilidade diferentes (por exemplo, uma ENI do Lambda em `priv-b` acessando o Aurora em `priv-a`) sem nenhuma configuração adicional.
+
+### `rt-public`: sub-rede pública
+
+| Destino | Alvo | Observação |
+|---|---|---|
+| `10.20.0.0/16` | `local` | Tráfego interno da VPC (automática) |
+| `0.0.0.0/0` | `igw-dove` (Internet Gateway) | Torna `pub-a` pública. Usada pelo NAT Gateway para alcançar a internet |
+
+### `rt-private`: sub-redes privadas
+
+| Destino | Alvo | Observação |
+|---|---|---|
+| `10.20.0.0/16` | `local` | Tráfego interno da VPC: Lambda → Aurora na porta 3306 (automática) |
+| `0.0.0.0/0` | `nat-dove` (NAT Gateway em `pub-a`) | **Existe apenas quando `enable_nat = true`.** Criada e removida pelo Terraform junto com o NAT Gateway (ver ADR-002) |
+
+As duas sub-redes privadas compartilham a mesma tabela porque existe um único NAT Gateway, em `sa-east-1a`. Com isso, o tráfego de saída das ENIs do Lambda em `priv-b` atravessa para a zona `a` antes de sair. Na proposta de alta disponibilidade (Entrega 2), cada sub-rede privada terá sua própria tabela apontando para um NAT na mesma zona.
+
+### Caminho do fluxo 3: saída para a internet a partir da sub-rede privada
+
+```
+Lambda (ENI em priv-a ou priv-b, sem IP público)
+   │  rt-private: 0.0.0.0/0 → nat-dove
+   ▼
+NAT Gateway (pub-a) ── troca o IP de origem pelo Elastic IP
+   │  rt-public: 0.0.0.0/0 → igw-dove
+   ▼
+Internet Gateway ──► Internet
+```
+
+A resposta percorre o caminho inverso: o NAT Gateway mantém o estado da conexão e devolve o tráfego à ENI de origem. Conexões iniciadas pela internet não têm caminho de volta até as sub-redes privadas, pois não há rota de entrada nem IP público nelas.
+
+### O que acontece se a rota `0.0.0.0/0 → NAT` não existir
+
+Nesta arquitetura, esse é o **estado padrão**, já que o NAT Gateway é criado sob demanda.
+
+| Componente | Comportamento sem a rota |
+|---|---|
+| Lambda → Aurora | **Continua funcionando.** O tráfego usa a rota `local` |
+| Usuário → CloudFront → API Gateway → Lambda | **Continua funcionando.** A invocação da Lambda chega pelo serviço Lambda, fora da VPC, e não depende das rotas |
+| Logs da Lambda no CloudWatch | **Continuam funcionando.** São enviados pelo serviço Lambda, não pela ENI |
+| Lambda → qualquer endereço na internet ou API pública da AWS | **Falha por tempo esgotado.** O pacote não tem rota de saída e é descartado; a função espera até o timeout da conexão |
+| Fluxo 3 (demonstração) | Não pode ser demonstrado até o NAT ser criado |
+
+Por isso a aplicação foi projetada para **não depender de saída em tempo de execução**: os segredos são injetados como variáveis de ambiente no deploy pelo Terraform, e não lidos de serviços externos pela Lambda.
+
+Dois casos relacionados:
+
+- **NAT removido e rota mantida:** a rota ficaria no estado `blackhole` e o tráfego seria descartado da mesma forma. O Terraform evita esse estado removendo a rota junto com o NAT, pelo mesmo `count` controlado por `enable_nat`.
+- **Rota `0.0.0.0/0 → IGW` na sub-rede privada:** também não daria acesso à internet, porque as ENIs do Lambda nunca recebem IP público. Sem NAT, o Internet Gateway não tem como traduzir o endereço privado, e a sub-rede ainda ficaria exposta conceitualmente como "pública".
+
+### Implementação no Terraform (resumo)
+
+```hcl
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.dove.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.dove.id
+  }
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.dove.id
+}
+
+resource "aws_route" "private_nat" {
+  count                  = var.enable_nat ? 1 : 0
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.dove[0].id
+}
+```
+
+As associações (`aws_route_table_association`) ligam `pub-a` à `rt-public` e `priv-a`/`priv-b` à `rt-private`.
 
 ---
 
