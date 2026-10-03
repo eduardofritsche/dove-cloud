@@ -22,6 +22,12 @@
 4. **Estimativa de Custos, ADRs, Tabelas de Rota e README:**
    - Comparação entre as opções de arquitetura e auxilio na estimativa de custos (Seção 5.9).
    - Auxílio nas redações dos ADRs 001 a 003, da Seção 5.4 (Tabelas de Rota) e do `README.md`.
+5. **Plano de Endereçamento IP (Seção 5.3):**
+   - Auxílio na organização e na lapidação do texto final da seção, a partir da topologia de rede e dos blocos CIDR definidos pelo grupo. A IA foi consultada para esclarecimento de dúvidas pontuais sobre o comportamento da AWS — como a quantidade de endereços reservados por sub-rede e a exigência de duas zonas de disponibilidade no DB subnet group do Aurora —, cujas respostas foram posteriormente conferidas na documentação oficial do provedor.
+6. **Tabela de Tecnologias (Seção 5.6):**
+   - Auxílio na estruturação e na revisão gramatical do texto final da seção. A escolha do provedor, da região, das versões e de cada tecnologia empregada foi deliberada pelo grupo; a IA contribuiu na organização das justificativas já definidas e no esclarecimento de dúvidas sobre equivalência de serviços entre provedores.
+
+**Não houve uso de IA** na elaboração do diagrama de arquitetura (Seção 5.2), construído pelo grupo no draw.io, nem na execução ou configuração de qualquer recurso na conta AWS.
 
 ---
 
@@ -32,3 +38,5 @@
    - Ajuste de eventuais estimativas de volumetria para refletir com exatidão a operação real do restaurante, mantendo a carga de pico em **10 a 30 usuários simultâneos** e o horário de funcionamento estritamente das **11h00 às 14h30**.
 3. **Conferência de Custos e Reescrita dos ADRs:**
    - Os valores da Seção 5.9 foram conferidos na calculadora oficial e no PDF exportado, e as premissas de horas de uso foram revisadas pelo grupo. Os ADRs foram reescritos pelo grupo a partir do rascunho, simplificando o texto e ajustando as decisões ao que foi acordado em equipe.
+4. **Conferência de Versões e Limites de Serviço (Seções 5.3 e 5.6):**
+   - Todas as versões informadas na Seção 5.6 e os limites técnicos citados na Seção 5.3 foram verificados pelo grupo diretamente na documentação oficial da AWS antes da entrega, por se tratar de informação sujeita a desatualização. Também foi corrigida nomenclatura de outro provedor de nuvem remanescente da fase inicial do projeto, quando o grupo ainda avaliava alternativas antes de definir a AWS.

@@ -96,7 +96,59 @@ A solução é dividida em três camadas estruturadas:
 
 ## 5.3 Plano de Endereçamento IP
 
-*(Seção a ser preenchida pelo grupo com a tabela de sub-redes e justificativas de endereçamento)*
+### Segmentação pública e privada na AWS
+
+Na AWS, uma sub-rede é pública ou privada conforme o destino da rota padrão na sua tabela de rotas:
+
+- **Pública:** `0.0.0.0/0` aponta para o Internet Gateway.
+- **Privada:** `0.0.0.0/0` aponta para o NAT Gateway, que permite saída para a internet mas não aceita conexões de entrada.
+
+A VPC é regional e cada sub-rede pertence a uma única zona de disponibilidade.
+
+Nesta arquitetura, **nenhum recurso computacional possui IP público**. O único endereço público do projeto é o Elastic IP associado ao NAT Gateway, utilizado exclusivamente para tráfego de saída, já que o NAT não aceita conexões de entrada. O Aurora é criado com o acesso público desabilitado, e as funções Lambda não recebem endereço público.
+
+CloudFront, S3, API Gateway, EventBridge, IAM e CloudWatch são serviços gerenciados que operam fora da VPC e, por isso, não constam na tabela de endereçamento.
+
+### Tabela de endereçamento
+
+| Recurso | Nome | CIDR | Zona | Tipo | Finalidade |
+|---|---|---|---|---|---|
+| VPC | `vpc-dove` | `10.20.0.0/16` | sa-east-1 | — | Rede do projeto |
+| Sub-rede | `pub-a` | `10.20.1.0/24` | sa-east-1a | Pública | NAT Gateway (único recurso com IP público) |
+| Sub-rede | `priv-a` | `10.20.10.0/24` | sa-east-1a | Privada | ENIs do Lambda (`sg-lambda`) e instância writer do Aurora (`sg-db`) |
+| Sub-rede | `priv-b` | `10.20.11.0/24` | sa-east-1b | Privada | ENIs do Lambda (`sg-lambda`); integra o DB subnet group |
+
+Todas as faixas pertencem a `10.0.0.0/8` (RFC 1918) e não se sobrepõem.
+
+### Endereços reservados pela AWS
+
+A AWS reserva **5 endereços em cada sub-rede**: o endereço de rede, o roteador da VPC, o servidor DNS, um endereço reservado para uso futuro e o endereço de broadcast.
+
+| Sub-rede | Total | Reservados | Utilizáveis |
+|---|---|---|---|
+| `pub-a` (`/24`) | 256 | `.0`, `.1`, `.2`, `.3`, `.255` | 251 |
+| `priv-a` (`/24`) | 256 | `.0`, `.1`, `.2`, `.3`, `.255` | 251 |
+| `priv-b` (`/24`) | 256 | `.0`, `.1`, `.2`, `.3`, `.255` | 251 |
+
+### Justificativa dos tamanhos
+
+**VPC `/16`.** Define o espaço de endereçamento do projeto e comporta novas sub-redes sem renumeração. O terceiro octeto identifica a função: `1.x` para sub-rede pública, `10.x` e `11.x` para sub-redes privadas.
+
+**`pub-a` (`/24`).** Contém apenas o NAT Gateway, que consome um endereço. O `/24` foi adotado por padronização e legibilidade, já que sub-redes não geram custo e um bloco menor não traria economia. Não há instância, bastion ou balanceador nesta sub-rede: ela existe porque o NAT Gateway precisa estar em uma sub-rede com rota para o Internet Gateway.
+
+**`priv-a` e `priv-b` (`/24`).** Dimensionadas pelo consumo do Lambda. Quando associado a uma VPC, o Lambda cria interfaces de rede (ENIs) compartilhadas entre execuções, e o número de ENIs cresce conforme a concorrência. Com a carga prevista na seção 5.1 (10 a 30 usuários simultâneos), o consumo real é de poucas dezenas de endereços, e os 251 utilizáveis por sub-rede oferecem margem ampla. A instância writer do Aurora consome um endereço adicional em `priv-a`.
+
+**Por que duas sub-redes privadas.** O Amazon Aurora exige um DB subnet group com sub-redes em pelo menos duas zonas de disponibilidade; a criação do cluster falha caso contrário. Essa é uma restrição da AWS, não uma decisão de alta disponibilidade: a instância writer roda apenas em `sa-east-1a`, e nenhuma instância é provisionada em `priv-b`. A arquitetura não oferece alta disponibilidade (ver seção 5.10). A AWS também recomenda manter endereços livres em cada sub-rede do grupo para ações de recuperação, o que os `/24` atendem com folga.
+
+### Endereços por recurso
+
+| Recurso | Sub-rede | Endereço | IP público | Observação |
+|---|---|---|---|---|
+| NAT Gateway | `pub-a` | IP privado dinâmico | **Sim** — Elastic IP | Único endereço público da arquitetura; usado apenas para saída |
+| Aurora (writer) | `priv-a` | Dinâmico, atribuído pela AWS | Não | Acesso público desabilitado; a aplicação usa o endpoint DNS do cluster |
+| Lambda (ENIs) | `priv-a` e `priv-b` | Dinâmicos | Não | Quantidade varia conforme a concorrência |
+
+Nenhum endereço IP é fixado manualmente. A aplicação conecta ao banco pelo endpoint DNS do cluster Aurora, que permanece estável mesmo se o endereço da instância mudar após uma recriação do ambiente — situação prevista, já que o ambiente será destruído e recriado entre as sessões de teste da Entrega 2 (ver seção 5.9).
 
 ---
 
@@ -233,7 +285,83 @@ Associado ao cluster Amazon Aurora Serverless v2 na sub-rede privada `priv-a` (e
 
 ## 5.6 Tecnologias
 
-*(Seção a ser preenchida pelo grupo com a tabela de tecnologias, versões e justificativas)*
+### Provedor e região
+
+**AWS, região `sa-east-1` (São Paulo).**
+
+A escolha do provedor considerou três fatores. O decisivo foi a disponibilidade de créditos gratuitos em uma conta AWS já criada pelo grupo, suficientes para cobrir o custo da Entrega 2, já que a instituição não oferece créditos de nuvem. Além disso, Lambda, API Gateway e Aurora Serverless v2 formam um conjunto integrado, com suporte completo no provider Terraform, atendendo às exigências do enunciado quanto a rede virtual, NAT gerenciado, IP público e regras de firewall. Por fim, integrantes do grupo já haviam utilizado a conta e os serviços em trabalhos anteriores, o que reduz o risco de atraso.
+
+A região foi escolhida pelos três critérios exigidos:
+
+**Latência.** Os usuários do restaurante estão no Brasil e São Paulo é a única região da AWS no país. Uma região norte-americana acrescentaria latência perceptível a cada requisição, agravando o efeito da inicialização a frio do Lambda.
+
+**Custo.** `sa-east-1` é uma das regiões mais caras da AWS. A estimativa na calculadora oficial confirma a diferença: o NAT Gateway custa cerca do dobro do preço de `us-east-1`, o Aurora fica em torno de US$ 0,25 por ACU-hora contra aproximadamente US$ 0,12, e o API Gateway é cerca de 59% mais caro por milhão de requisições. O grupo aceitou esse custo em favor da latência, já que o valor absoluto permanece baixo no cenário previsto e é coberto pelos créditos.
+
+**Disponibilidade dos serviços.** Todos os serviços da arquitetura existem em `sa-east-1`, incluindo o Aurora Serverless v2 compatível com MySQL. A região possui mais de uma zona de disponibilidade, requisito obrigatório para a criação do DB subnet group do Aurora e base para a proposta de alta disponibilidade da Entrega 2.
+
+---
+
+### Sistema operacional
+
+**Não aplicável.** A arquitetura não possui instâncias EC2. O Lambda executa sobre sistema operacional gerenciado pela AWS, sem acesso administrativo, e o Aurora não expõe o sistema subjacente. Não há pacotes a instalar nem atualizações de segurança sob responsabilidade do grupo.
+
+Pela mesma razão não existe acesso por SSH: sem instâncias, não há host ao qual se conectar. A administração ocorre pela AWS CLI, autenticada por IAM. A dispensa da demonstração de SSH prevista para a Entrega 2 foi autorizada pelo professor e está registrada no ADR-001.
+
+---
+
+### Runtime e linguagem
+
+**AWS Lambda com runtime Java gerenciado — Java 17.**
+
+A aplicação já é escrita em Java 17 com Spring Boot 3.5.4, o que dispensa reescrita. Optou-se pelo runtime gerenciado, empacotado em `.zip`, em vez de imagem de container, por ser compatível com o Lambda SnapStart — recurso que reduz o tempo de inicialização a frio, limitação crítica do Spring Boot em ambiente serverless.
+
+A adaptação ao Lambda é feita pela biblioteca **AWS Serverless Java Container**, oficial da AWS, que traduz eventos do API Gateway em requisições HTTP para o Spring. Controllers, serviços e a camada JPA permanecem inalterados.
+
+---
+
+### Servidor web e proxy
+
+**Amazon API Gateway (HTTP API), com Amazon CloudFront e Amazon S3.**
+
+Não há Nginx ou Apache: a função é cumprida por serviços gerenciados. O API Gateway recebe as requisições HTTPS, aplica limitação de taxa e invoca a função Lambda. O tipo HTTP API foi escolhido em vez do REST API por custo por requisição significativamente menor, sem necessidade dos recursos exclusivos do REST API (chaves de API, planos de uso e cache).
+
+O frontend Angular é compilado em arquivos estáticos, servido a partir de um bucket S3 privado e distribuído pelo CloudFront, que fornece HTTPS e unifica frontend e API sob o mesmo domínio, eliminando a configuração de CORS.
+
+---
+
+### Banco de dados
+
+**Amazon Aurora Serverless v2 compatível com MySQL — Aurora MySQL 3.08.0 ou superior.**
+
+A versão 3.x é compatível com MySQL 8.0, mantendo o esquema e as consultas já desenvolvidos. A partir da 3.08.0 o cluster suporta *auto-pause*, podendo escalar a zero ACUs quando ocioso — determinante para o perfil do restaurante, que opera apenas das 11h00 às 14h30. A capacidade foi definida entre 0 e 2 ACUs, sendo cada ACU equivalente a aproximadamente 2 GB de memória com CPU proporcional.
+
+As credenciais do banco são injetadas como variáveis de ambiente na função Lambda pelo Terraform, no momento do deploy, e não são lidas de nenhum serviço externo em tempo de execução. Essa decisão mantém a aplicação funcional mesmo com o NAT Gateway destruído, condição necessária para a estratégia de controle de custos descrita na seção 5.9 e no ADR-002. A limitação aceita está registrada na seção 5.10.
+
+---
+
+### Infraestrutura como código
+
+**Terraform** 
+
+O Terraform é a ferramenta padrão de mercado, com ampla documentação e suporte completo aos serviços utilizados. O provider oficial cobre todos os recursos do projeto e sua versão deve ser fixada no bloco `required_providers` para garantir reprodutibilidade entre os integrantes. Atenção: a configuração de capacidade mínima igual a 0 ACU no Aurora Serverless v2 exige uma versão recente do provider.
+
+---
+
+### Instalação da aplicação
+
+**Script de implantação via AWS CLI, orquestrado pelo Terraform.**
+
+Não há instalação de software em servidor, o que torna inaplicáveis cloud-init e Ansible. O artefato `.jar` da aplicação é publicado em um bucket S3 e referenciado pela função Lambda; o frontend compilado é sincronizado para o bucket do S3. Ambos os passos são executados por script versionado no repositório, sem intervenção manual — o que também viabiliza a estratégia de destruir e recriar o ambiente entre as sessões de teste (seção 5.9).
+
+---
+
+### Serviços complementares
+
+**Amazon EventBridge Scheduler.** Executa uma invocação programada da função Lambda antes do horário de funcionamento, aquecendo o ambiente e retirando o cluster Aurora do estado pausado, o que mitiga a lentidão do primeiro acesso do dia.
+
+**AWS IAM.** Autentica o acesso administrativo pela AWS CLI e define a *execution role* da função Lambda, com permissão restrita à gravação de logs no CloudWatch e à criação das interfaces de rede na VPC.
+
+**Amazon CloudWatch Logs.** Recebe automaticamente os logs de execução da função Lambda.
 
 ---
 
@@ -452,7 +580,3 @@ A arquitetura baseline adotada para a Entrega 1 prioriza baixo custo operacional
 ## 5.11 Declaração de Uso de Ferramentas de IA
 
 O uso de inteligência artificial generativa no planejamento, modelagem e documentação da infraestrutura do projeto está formalizado em conformidade com as diretrizes da disciplina no arquivo [`IA.md`](../IA.md), localizado na raiz deste repositório. O documento declara detalhadamente as ferramentas consultadas, o escopo de atuação e as correções e validações críticas conduzidas pela equipe técnica.
-
-
-
-
