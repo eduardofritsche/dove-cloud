@@ -91,7 +91,7 @@ A solução é dividida em três camadas estruturadas:
 ## 5.2 Diagrama de Arquitetura
 
 O diagrama completo da infraestrutura em nuvem na AWS está disponível em formato vetorial no documento:  
-📁 **[Diagrama de arquitetura.pdf](Diagramas/Diagrama%20de%20arquitetura.pdf)**
+📁 **[Diagrama de arquitetura.pdf](diagramas/Diagrama%20de%20arquitetura.pdf)**
 
 ### Componentes e Distribuição de Rede
 
@@ -395,11 +395,23 @@ Não há instalação de software em servidor, o que torna inaplicáveis cloud-i
 
 ## 5.7 Dimensionamento das Instâncias
 
-*(Não aplicável / Cancelado com anuência do professor)*
+*(Arquitetura 100% Serverless / Dispensa de EC2 autorizada pelo professor)*
 
-Conforme autorizado pelo professor Gildomiro Bairros, o projeto adota uma arquitetura **100% Serverless**, dispensando o provisionamento e a manutenção de máquinas virtuais (sem instâncias Amazon EC2 para aplicação, banco de dados ou Bastion Host).
+Conforme autorizado pelo professor Gildomiro Bairros e formalizado no **ADR-001**, o projeto adota uma arquitetura **100% Serverless**, dispensando o provisionamento e a manutenção de máquinas virtuais tradicionais (sem instâncias Amazon EC2 para aplicação, banco de dados ou Bastion Host).
 
-Dessa forma, o dimensionamento tradicional de hardware de instâncias (famílias de CPU, quantidade de vCPU, memória RAM de sistema operacional e tipos de discos EBS) **não se aplica** a esta infraestrutura. A computação do backend é executada sob demanda pela AWS Lambda e a capacidade relacional escala automaticamente em frações de ACUs no Amazon Aurora Serverless v2.
+Dessa forma, o dimensionamento tradicional de hardware de instâncias (famílias de instâncias EC2, tipos como `t3.micro`, quantidade fixa de vCPUs de SO e tipos de volumes em bloco EBS como `gp3`) não se aplica diretamente no modelo IaaS convencional. No entanto, para fins de especificação formal, controle de capacidade computacional e atendimento rigoroso aos requisitos do projeto, a equivalência de dimensionamento dos recursos serverless adotados é detalhada a seguir:
+
+### Tabela de Dimensionamento dos Recursos Computacionais
+
+| Componente | Família / Modelo do Serviço | Tipo / Alocação | vCPU Equivalente | Memória RAM | Disco / Armazenamento | Sub-rede | Justificativa de Dimensionamento |
+|---|---|---|---|---|---|---|---|
+| **Aplicação (Backend)** | AWS Lambda | Runtime gerenciado Java 17 | ~0,88 vCPU eq. (alocada proporcionalmente à memória) | 1.536 MB | 512 MB `/tmp` (efêmero) | `priv-a` e `priv-b` | Dimensionado para suportar com folga o consumo de memória da JVM com Spring Boot 3 e SnapStart. Na AWS Lambda, a alocação de 1.536 MB garante fração de vCPU dedicada suficiente para processar a carga de pico estimada de 10 a 30 usuários simultâneos (2 a 5 RPS) com tempo médio de resposta de 300 ms, sem incorrer em saturação ou trocas de contexto. |
+| **Banco de Dados** | Amazon Aurora Serverless v2 | `db.serverless` (Aurora MySQL 3.08+) | Proporcional (escala de 0,5 a 2 vCPUs) | 0 a 2 ACUs (~0 a 4 GB RAM) | Storage distribuído elástico e auto-escalável (0 a 128 TiB) | `priv-a` (writer) | Configurado com auto-pause (`min_capacity = 0`) para escalar a zero fora do expediente do restaurante, contendo custos. Durante o atendimento (11h00 às 14h30), escala dinamicamente entre 0,5 e 2 ACUs (sendo 1 ACU ≈ 2 GB RAM), absorvendo picos sem intervenção manual e com isolamento transacional completo para o InnoDB. |
+| **Bastion Host** | *Não aplicável* | — | — | — | — | — | Provisionamento dispensado com anuência do professor e registrado no ADR-001. A administração é 100% realizada via AWS CLI, Terraform e Console AWS autenticada por IAM com MFA, eliminando custos de VM e riscos associados à exposição da porta 22 (SSH). |
+
+### Comportamento em Limite de Carga e Escalonamento
+- **AWS Lambda:** Ao atingir o limite de concorrência ou em caso de elevação súbita de tráfego, a AWS cria novas instâncias de execução da função distribuídas pelas ENIs nas sub-redes `priv-a` e `priv-b`. Caso a concorrência atinja limites não provisionados, novas requisições sofrem *throttling* temporário (`HTTP 429 Too Many Requests`), preservando a estabilidade da aplicação.
+- **Aurora Serverless v2:** O escalonamento de ACUs ocorre de forma transparente e em tempo real (em frações de até 0,5 ACU) sem queda de conexões ativas. Se a carga ultrapassar 2 ACUs, o banco mantém as conexões existentes mas pode aumentar o tempo de resposta das consultas (*disk queue/wait state*), sem corrupção de dados ou interrupção do serviço.
 
 ---
 
