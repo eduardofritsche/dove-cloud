@@ -16,8 +16,8 @@ Projeto de infraestrutura em nuvem do **Dove Restaurante**, sistema de gestão d
 | Nome | GitHub |
 |---|---|
 | Eduardo Henrique Fritsche | [@eduardofritsche](https://github.com/eduardofritsche) |
-| <nome do integrante> | `@<usuario>` |
-| <nome do integrante> | `@<usuario>` |
+| Lethicia Marques dos Santos Martins | [@lethicia13](https://github.com/lethicia13) |
+| Lucas Vieira | [@Lucas-Vieira2006](https://github.com/Lucas-Vieira2006) |
 
 ## Visão geral da arquitetura
 

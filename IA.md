@@ -8,7 +8,7 @@
 
 ## 1. Ferramentas Utilizadas
 - **Antigravity (Google DeepMind / Gemini):** Utilizado como assistente para organização do backlog e auxílio na estruturação textual de seções da documentação técnica.
-- **Claude (Anthropic), via Claude Code:** Utilizado como assistente para discussão das alternativas de arquitetura, apoio no preenchimento da calculadora de preços e extruturação textual de seções da documentação técnica.
+- **Claude (Anthropic), via Claude Code:** Utilizado como assistente para discussão das alternativas de arquitetura, apoio no preenchimento da calculadora de preços e estruturação textual de seções da documentação técnica.
 
 ---
 

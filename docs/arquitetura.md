@@ -90,7 +90,35 @@ A solução é dividida em três camadas estruturadas:
 
 ## 5.2 Diagrama de Arquitetura
 
-*(Seção a ser preenchida pelo grupo com a referência e descrição dos fluxos do diagrama em `docs/diagramas/`)*
+O diagrama completo da infraestrutura em nuvem na AWS está disponível em formato vetorial no documento:  
+📁 **[Diagrama de arquitetura.pdf](Diagramas/Diagrama%20de%20arquitetura.pdf)**
+
+### Componentes e Distribuição de Rede
+
+A infraestrutura foi projetada na região **`sa-east-1` (São Paulo)** dentro da VPC **`vpc-dove`** (`10.20.0.0/16`), distribuída entre duas Zonas de Disponibilidade (`sa-east-1a` e `sa-east-1b`):
+
+- **Sub-rede pública (`pub-a` — 10.20.1.0/24):** Hospeda o Internet Gateway (IGW) e o AWS NAT Gateway provisionado com Elastic IP (criado sob demanda, conforme ADR-002);
+- **Sub-redes privadas (`priv-a` — 10.20.10.0/24 e `priv-b` — 10.20.11.0/24):** Hospedam as interfaces de rede elásticas (ENIs) da função AWS Lambda em ambas as AZs e compõem o *DB Subnet Group* do cluster Amazon Aurora Serverless v2 (alocado como writer na sub-rede `priv-a`).
+
+### Descrição dos Fluxos de Comunicação
+
+1. **Fluxo 1 — Requisições de Usuários Finais (Frontend e API):**
+   - O usuário final acessa a aplicação via navegador web através de conexão criptografada HTTPS na porta padrão 443;
+   - O **Amazon CloudFront** atua como ponto único de entrada seguro (HTTPS) e direciona as requisições:
+     - Rotas de conteúdo estático (`/*`): atendidas pelo bucket privado **Amazon S3**, onde está hospedada a SPA em Angular compilada;
+     - Rotas da API REST (`/api/*`): encaminhadas diretamente para o **Amazon API Gateway** (HTTP API);
+   - O API Gateway invoca a função **AWS Lambda** (`dove-integrador-api`), executada com runtime gerenciado Java 17 e Spring Boot 3 com SnapStart (1536 MB), associada ao Security Group `sg-lambda`;
+   - A função Lambda comunica-se com a instância writer do cluster **Amazon Aurora Serverless v2 (MySQL)** através da porta TCP `3306`, protegida pelo Security Group `sg-db` (que autoriza exclusivamente conexões originadas pelo `sg-lambda`).
+
+2. **Fluxo 2 — Gestão e Acesso Administrativo:**
+   - O gerenciamento e a administração da infraestrutura são realizados pelo administrador autenticado via **AWS IAM**, operando exclusivamente através da **AWS CLI** e do console web da AWS;
+   - Não há instâncias EC2, servidor Bastion Host ou abertura de portas administrativas (como SSH/22) expostas à internet (conforme deliberado no ADR-001).
+
+3. **Fluxo 3 — Saída para a Internet Sob Demanda (Egress):**
+   - Quando o NAT Gateway estiver ativado via Terraform (`enable_nat = true`), a função AWS Lambda nas sub-redes privadas consegue estabelecer conexões de saída com serviços externos na internet via porta TCP 443, passando pelo **NAT Gateway** (`pub-a`) e pelo **Internet Gateway (IGW)** (conforme deliberado no ADR-002).
+
+4. **Fluxo 4 — Rotina Programada de Aquecimento (Warm-up):**
+   - O **Amazon EventBridge Scheduler** dispara um evento agendado via cron às 10h50 para acionar a função Lambda e restaurar o cluster Aurora Serverless v2 do estado pausado (0 ACU) antes da abertura do restaurante às 11h00, mitigando *cold starts* e tempos de espera no primeiro acesso dos clientes.
 
 ---
 
@@ -506,7 +534,6 @@ O valor corresponde a cerca de **10% do crédito disponível** na conta (seção
 **O que se perde com a redução:**
 - **Latência na retomada:** o Aurora leva ~15 s para acordar (mais se ficar pausado por mais de 24 h). Somado ao cold start da Lambda, a primeira requisição pode passar do limite de 30 s do API Gateway e falhar. Isso exige o aquecimento agendado antes do almoço.
 - **Complexidade operacional:** a pausa só ocorre sem conexões abertas; é necessário configurar `wait_timeout` no parameter group e um pool pequeno no Spring (Hikari com `minimum-idle = 0`), senão a Lambda mantém conexões e o banco nunca pausa.
-- **Uso fora do horário fica lento:** um pedido feito às 16h, por exemplo, encontra o banco pausado e espera a retomada.
 - **Se o NAT for criado sob demanda:** a sub-rede privada fica sem saída para a internet fora das janelas de manutenção (o fluxo 3 deixa de estar disponível permanentemente).
 
 ### 5. Nível gratuito
@@ -564,7 +591,7 @@ A arquitetura baseline adotada para a Entrega 1 prioriza baixo custo operacional
 ### 2. Latência de Retomada do Aurora Pausado (0 ACU) somada ao Cold Start da Lambda
 - **Descrição da limitação:** Conforme definido no ADR-003 e na Seção 5.9, o cluster Aurora Serverless v2 opera com auto-pause (`min_capacity = 0`, pausa após 5 minutos sem conexões). Quando o banco está pausado, o restabelecimento da camada computacional leva cerca de 15 segundos. Se essa primeira chamada coincidir com uma execução a frio (*cold start*) da função AWS Lambda em Java/Spring Boot (~8 a 10 segundos para carregar JVM e beans JPA), o tempo total de resposta acumulado pode atingir de 23 a 28 segundos.
 - **Impacto:** Risco de expirar o limite rígido de timeout de 30 segundos do Amazon API Gateway, retornando erro `HTTP 504 Gateway Timeout` para o primeiro cliente que acessar o sistema após um período de inatividade.
-- **Mitigação aplicada:** Durante o horário operacional do restaurante (11h00 às 14h30), uma regra do Amazon EventBridge Scheduler dispara pings periódicos a partir das 10h50 para manter o banco acordado e a função aquecida. No entanto, chamadas esporádicas fora desse turno continuam sujeitas a essa latência perceptível.
+- **Mitigação aplicada:** Durante o horário operacional do restaurante (11h00 às 14h30), uma regra do Amazon EventBridge Scheduler dispara pings periódicos a partir das 10h50 para manter o banco acordado e a função aquecida antes do início do atendimento. Como o restaurante não funciona fora desse horário, a pausa automática durante o período ocioso não prejudica o fluxo normal de atendimento.
 
 ### 3. Ausência Temporária de Rota de Saída (Egress) com o NAT Gateway Destruído
 - **Descrição da limitação:** O AWS NAT Gateway cobra um valor fixo de ~US$ 0,093/hora (~US$ 71,63/mês com o IPv4 público) independentemente do volume de tráfego. Para não esgotar os créditos da conta durante o período de desenvolvimento da Entrega 2 (Cenário B da Seção 5.9), o NAT Gateway permanecerá destruído na maior parte do tempo, sendo provisionado via Terraform (`enable_nat = true`) exclusivamente nas janelas de teste de saída e apresentações.
@@ -574,6 +601,14 @@ A arquitetura baseline adotada para a Entrega 1 prioriza baixo custo operacional
 ### 4. Dependência Exclusiva da Gestão de Credenciais IAM (Sem Acesso Shell/SSH)
 - **Descrição da limitação:** A escolha deliberada por não utilizar Bastion Host nem portas abertas (ADR-001) elimina o vetor de ataque via SSH, mas concentra 100% da governança de segurança na gestão de credenciais do AWS IAM.
 - **Impacto:** A equipe não possui acesso interativo via terminal às máquinas subjacentes da Lambda ou do Aurora. Qualquer diagnóstico operacional ou investigação de falhas depende estritamente da ingestão correta de logs no Amazon CloudWatch e de métricas do console. Além disso, o comprometimento da chave de acesso IAM ou da sessão de console de qualquer integrante concede privilégios diretos sobre a infraestrutura na nuvem, demandando aplicação rigorosa de senhas fortes e MFA em todas as contas.
+
+### 5. Risco de Esgotamento Precoce dos Créditos AWS e Suspensão dos Serviços (Free Plan)
+- **Descrição do risco:** Conforme identificado na Seção 5.9 (item 5), a conta utilizada opera sob o AWS Free plan com limite de crédito promocional (US$ 120,00 válido até 22/01/2027). Serviços como Aurora Serverless v2 e NAT Gateway não possuem nível gratuito permanente e geram custo contínuo (~US$ 0,22/h combinados) caso fossem mantidos ativos 24 horas por dia. Nesse cenário ininterrupto, o crédito total se esgotaria em cerca de 22 dias, o que provocaria a suspensão preventiva da conta e a queda de todo o ambiente antes da apresentação final do projeto.
+- **Impacto:** Suspensão imediata dos serviços em nuvem pela AWS por falta de créditos/saldo, impedindo testes, ensaios e a demonstração ao vivo para a banca avaliadora.
+- **Tratamento e controle:** Esse risco é controlado pelo plano de gestão de custos detalhado na Seção 5.9:
+  1. O cluster Aurora opera com *auto-pause* (`min_capacity = 0`), consumindo horas de computação apenas nas janelas de teste;
+  2. O NAT Gateway é gerenciado sob demanda via variável Terraform (`enable_nat = false`), sendo mantido destruído fora das sessões de validação;
+  3. Configuração de alertas antecipados no **AWS Budgets** (US$ 10, US$ 30 e US$ 60) e ativação de *Cost Allocation Tags* para detecção e contenção imediata de qualquer desvio no consumo.
 
 ---
 
