@@ -84,7 +84,7 @@ O código da aplicação fica em repositórios separados:
 | [ADR-001](docs/adr/001-acesso-administrativo.md) | Estratégia de acesso administrativo |
 | [ADR-002](docs/adr/002-saida-internet-subrede-privada.md) | Saída para a internet da sub-rede privada |
 | [ADR-003](docs/adr/003-localizacao-banco.md) | Localização do banco de dados |
-| [Diagrama](docs/diagramas/arquitetura.png) | Diagrama de arquitetura ([fonte editável](docs/diagramas/arquitetura.drawio)) |
+| [Diagrama](docs/diagramas/Diagrama%20de%20arquitetura%20PNG.png) | Diagrama de arquitetura ([fonte editável](docs/diagramas/Diagrama%20de%20arquitetura.drawio)) |
 | [Estimativa de custos](docs/custos/estimativa.pdf) | Export da calculadora oficial da AWS |
 | [Declaração de uso de IA](IA.md) | Ferramentas de IA usadas e o que foi revisado |
 
