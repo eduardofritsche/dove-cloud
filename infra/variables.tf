@@ -74,8 +74,8 @@ variable "enable_nat" {
 # ---------------------------------------------------------------
 variable "aurora_engine_version" {
   type        = string
-  description = "Versão do Aurora MySQL. A 3.08 ou superior permite pausar em 0 ACU; a 3.07 ou superior suporta a Data API."
-  default     = "8.0.mysql_aurora.3.10.6"
+  description = "Versão do Aurora PostgreSQL (versão padrão em sa-east-1). Permite pausar em 0 ACU e suporta a Data API."
+  default     = "17.9"
 }
 
 variable "aurora_min_capacity" {
