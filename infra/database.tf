@@ -20,12 +20,12 @@ resource "aws_secretsmanager_secret" "db_master" {
 resource "aws_secretsmanager_secret_version" "db_master" {
   secret_id = aws_secretsmanager_secret.db_master.id
   secret_string = jsonencode({
-    engine   = "mysql"
+    engine   = "postgres"
     username = var.db_master_username
     password = random_password.db_master.result
     dbname   = var.db_name
     host     = aws_rds_cluster.main.endpoint
-    port     = 3306
+    port     = 5432
   })
 }
 
@@ -41,28 +41,29 @@ resource "aws_db_subnet_group" "main" {
 }
 
 resource "aws_rds_cluster_parameter_group" "main" {
-  name        = "${var.projeto}-aurora-mysql8"
-  family      = "aurora-mysql8.0"
-  description = "Encerra conexoes ociosas para permitir a pausa automatica do Aurora"
+  name        = "${var.projeto}-aurora-pg17"
+  family      = "aurora-postgresql17"
+  description = "Encerra sessoes ociosas para permitir a pausa automatica do Aurora"
 
-  # Conexões ociosas da Lambda impediriam a pausa (ADR-003)
+  # Conexões ociosas da Lambda impediriam a pausa (ADR-003). Valores em milissegundos.
   parameter {
-    name  = "wait_timeout"
-    value = "300"
+    name  = "idle_session_timeout"
+    value = "300000"
   }
 
   parameter {
-    name  = "interactive_timeout"
-    value = "300"
+    name  = "idle_in_transaction_session_timeout"
+    value = "300000"
   }
 }
 
 # ---------------------------------------------------------------
-# Aurora MySQL Serverless v2 (ADR-003)
+# Aurora PostgreSQL Serverless v2 (ADR-003)
+# O Free plan da AWS não permite Aurora MySQL; o único motor Aurora liberado é o PostgreSQL.
 # ---------------------------------------------------------------
 resource "aws_rds_cluster" "main" {
   cluster_identifier = "${var.projeto}-aurora"
-  engine             = "aurora-mysql"
+  engine             = "aurora-postgresql"
   engine_mode        = "provisioned"
   engine_version     = var.aurora_engine_version
 

@@ -6,6 +6,7 @@
 # ---------------------------------------------------------------
 # sg-lambda: ENIs da Lambda da API
 # Sem regras de entrada: a Lambda é invocada pelo serviço Lambda, não por IP.
+# Saída apenas para o banco na porta 5432 (PostgreSQL).
 # ---------------------------------------------------------------
 resource "aws_security_group" "lambda" {
   name        = "${var.projeto}-lambda"
@@ -17,10 +18,10 @@ resource "aws_security_group" "lambda" {
 
 resource "aws_vpc_security_group_egress_rule" "lambda_to_db" {
   security_group_id            = aws_security_group.lambda.id
-  description                  = "MySQL apenas para o Aurora (S2)"
+  description                  = "PostgreSQL apenas para o Aurora (S2)"
   ip_protocol                  = "tcp"
-  from_port                    = 3306
-  to_port                      = 3306
+  from_port                    = 5432
+  to_port                      = 5432
   referenced_security_group_id = aws_security_group.db.id
 }
 
@@ -30,7 +31,7 @@ resource "aws_vpc_security_group_egress_rule" "lambda_to_db" {
 # ---------------------------------------------------------------
 resource "aws_security_group" "db" {
   name        = "${var.projeto}-db"
-  description = "Aurora: entrada MySQL apenas a partir do sg-lambda"
+  description = "Aurora: entrada PostgreSQL apenas a partir do sg-lambda"
   vpc_id      = aws_vpc.main.id
 
   tags = { Name = "sg-db" }
@@ -38,9 +39,9 @@ resource "aws_security_group" "db" {
 
 resource "aws_vpc_security_group_ingress_rule" "db_from_lambda" {
   security_group_id            = aws_security_group.db.id
-  description                  = "MySQL apenas a partir da Lambda da API"
+  description                  = "PostgreSQL apenas a partir da Lambda da API"
   ip_protocol                  = "tcp"
-  from_port                    = 3306
-  to_port                      = 3306
+  from_port                    = 5432
+  to_port                      = 5432
   referenced_security_group_id = aws_security_group.lambda.id
 }
