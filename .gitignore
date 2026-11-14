@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------
+# Terraform
+# O .terraform.lock.hcl NÃO é ignorado: deve ser versionado (seção 7.2)
+# ---------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Planos salvos (terraform plan -out) contêm valores sensíveis
+tfplan
+*.tfplan
+
+# Variáveis com valores reais: só o arquivo de exemplo vai para o Git
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# ---------------------------------------------------------------
+# Chaves, credenciais e segredos
+# ---------------------------------------------------------------
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.env
+.env.*
+.aws/
+
+# ---------------------------------------------------------------
+# Artefatos de build da aplicação (gerados localmente)
+# ---------------------------------------------------------------
+*.zip
+build/
+dist/
+
+# ---------------------------------------------------------------
+# Sistema operacional e editores
+# ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
