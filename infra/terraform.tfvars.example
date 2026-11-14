@@ -1,0 +1,18 @@
+# Copie para terraform.tfvars (que NÃO é versionado) e ajuste os valores.
+#   cp terraform.tfvars.example terraform.tfvars
+
+grupo = "nome-do-grupo"
+
+# Região e rede: os padrões seguem o plano de endereçamento da seção 5.3
+# aws_region  = "sa-east-1"
+# vpc_cidr    = "10.20.0.0/16"
+# pub_a_cidr  = "10.20.1.0/24"
+# priv_a_cidr = "10.20.10.0/24"
+# priv_b_cidr = "10.20.11.0/24"
+
+# NAT Gateway: false no dia a dia; true para testar o fluxo 3 e na apresentação
+enable_nat = false
+
+# Aurora: 0 permite pausar; use 0.5 no dia da apresentação para evitar a retomada lenta
+aurora_min_capacity = 0
+aurora_max_capacity = 2
