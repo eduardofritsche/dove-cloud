@@ -134,3 +134,77 @@ variable "db_backup_window" {
   description = "Janela diária do backup automático, em UTC (06:00-07:00 UTC = 03:00-04:00 em Brasília)."
   default     = "06:00-07:00"
 }
+
+# ---------------------------------------------------------------
+# Lambda da API (substitui o tipo de instância do R9)
+# ---------------------------------------------------------------
+variable "api_zip_path" {
+  type        = string
+  description = "Caminho, relativo à pasta infra/, do pacote da API gerado por 'mvn package' (target/dove-lambda.zip)."
+  default     = "artifacts/dove-lambda.zip"
+}
+
+variable "lambda_memory_mb" {
+  type        = number
+  description = "Memória da Lambda da API, em MB. Na Lambda, mais memória também significa mais CPU (inicialização do Spring mais rápida)."
+  default     = 2048
+}
+
+variable "lambda_timeout_s" {
+  type        = number
+  description = "Tempo máximo de execução da Lambda da API, em segundos. O API Gateway encerra a requisição em 30 s."
+  default     = 29
+
+  validation {
+    condition     = var.lambda_timeout_s >= 3 && var.lambda_timeout_s <= 29
+    error_message = "O timeout deve ficar entre 3 e 29 segundos, abaixo do limite de 30 s do API Gateway."
+  }
+}
+
+variable "enable_snapstart" {
+  type        = bool
+  description = "Ativa o Lambda SnapStart na API (restaura o Spring já inicializado e reduz o cold start)."
+  default     = true
+}
+
+variable "log_retention_days" {
+  type        = number
+  description = "Dias de retenção dos logs no CloudWatch."
+  default     = 7
+}
+
+# ---------------------------------------------------------------
+# API Gateway
+# ---------------------------------------------------------------
+variable "api_throttle_rate" {
+  type        = number
+  description = "Limite médio de requisições por segundo na API (protege contra abuso e custo inesperado)."
+  default     = 20
+}
+
+variable "api_throttle_burst" {
+  type        = number
+  description = "Limite de pico de requisições na API."
+  default     = 50
+}
+
+# ---------------------------------------------------------------
+# Aquecimento agendado (EventBridge Scheduler)
+# ---------------------------------------------------------------
+variable "enable_warmup" {
+  type        = bool
+  description = "Cria o agendamento que mantém a Lambda e o Aurora acordados no horário do restaurante. false durante a Entrega 2."
+  default     = false
+}
+
+variable "warmup_schedule" {
+  type        = string
+  description = "Expressão cron do aquecimento, no fuso de warmup_timezone (padrão: a cada 5 min, das 11h às 14h55)."
+  default     = "cron(0/5 11-14 * * ? *)"
+}
+
+variable "warmup_timezone" {
+  type        = string
+  description = "Fuso horário do agendamento de aquecimento."
+  default     = "America/Sao_Paulo"
+}

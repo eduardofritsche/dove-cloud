@@ -16,3 +16,12 @@ enable_nat = false
 # Aurora: 0 permite pausar; use 0.5 no dia da apresentação para evitar a retomada lenta
 aurora_min_capacity = 0
 aurora_max_capacity = 2
+
+# Lambda da API: copie o pacote gerado em dove-integrador-api/target/dove-lambda.zip
+# para infra/artifacts/dove-lambda.zip (o *.zip não é versionado)
+# api_zip_path     = "artifacts/dove-lambda.zip"
+# lambda_memory_mb = 2048
+# enable_snapstart = true
+
+# Aquecimento agendado: false na Entrega 2; true para simular a operação do restaurante
+enable_warmup = false
