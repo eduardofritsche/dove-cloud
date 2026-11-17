@@ -1,0 +1,28 @@
+# Evidência: cabeçalhos de segurança (CKV2_AWS_32 corrigido) e autorização da API
+# Coletado em 17/11/2026 19:56 (horário de Brasília), após o terraform apply com a política Managed-SecurityHeadersPolicy e a API com as correções A1 a A4
+
+## 1. HTTPS e cabeçalhos de segurança
+$ curl -sI https://d2dh9t7nifemqx.cloudfront.net
+HTTP/1.1 200 OK
+X-XSS-Protection: 1; mode=block
+X-Frame-Options: SAMEORIGIN
+Referrer-Policy: strict-origin-when-cross-origin
+X-Content-Type-Options: nosniff
+Strict-Transport-Security: max-age=31536000
+
+## 2. HTTP redireciona para HTTPS
+$ curl -sI http://d2dh9t7nifemqx.cloudfront.net
+HTTP/1.1 301 Moved Permanently
+Location: https://d2dh9t7nifemqx.cloudfront.net/
+
+## 3. Lista de usuários sem login (antes era pública)
+$ curl -s -o /dev/null -w '%{http_code}' https://d2dh9t7nifemqx.cloudfront.net/api/usuario
+403
+
+## 4. Busca pública de usuário inexistente (não expõe dados)
+$ curl -s -w ' %{http_code}' 'https://d2dh9t7nifemqx.cloudfront.net/api/usuario/findByUsername?username=usuario-inexistente'
+ 404
+
+## 5. Testes manuais com usuário CLIENTE (executados pela integrante Lethicia)
+- findByUsername do próprio usuário sem login: retornou apenas {"existe":true} (sem senha, CPF ou e-mail)
+- POST /api/cardapios com token de CLIENTE: retornou 403

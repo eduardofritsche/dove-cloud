@@ -58,7 +58,7 @@ Este documento reúne os controles de segurança aplicados (S1 a S8), o tratamen
 | CKV2_AWS_8: Aurora fora de um plano do AWS Backup | Média | `aws_rds_cluster.main` | Aceito | A política mínima (Parte D) usa o backup automático nativo do Aurora, com retenção de 1 dia. O AWS Backup entra na política conservadora em `backup.md` |
 | CKV_AWS_162: autenticação IAM do banco desativada | Média | `aws_rds_cluster.main` | Aceito | A aplicação usa usuário e senha via JDBC. A autenticação IAM exigiria gerar tokens na Lambda, a cada 15 minutos |
 | CKV_AWS_68, CKV2_AWS_47: CloudFront sem WAF | Média | `aws_cloudfront_distribution.main` | Aceito | O WAF custa a partir de US$ 5/mês por Web ACL mais regras. A mitigação adotada é o limite de requisições do API Gateway (20 req/s, pico de 50). Ameaça T4 |
-| CKV2_AWS_32: CloudFront sem política de cabeçalhos de segurança | Média | `aws_cloudfront_distribution.main` | **Corrigido** | Associada a política gerenciada `Managed-SecurityHeadersPolicy` aos dois comportamentos (frontend e `/api/*`), sem custo. As respostas passam a trazer `Strict-Transport-Security`, `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` e `X-XSS-Protection`. O achado não aparece na segunda execução do Checkov. Demonstração: `curl -sI https://<app_url>` |
+| CKV2_AWS_32: CloudFront sem política de cabeçalhos de segurança | Média | `aws_cloudfront_distribution.main` | **Corrigido** | Associada a política gerenciada `Managed-SecurityHeadersPolicy` aos dois comportamentos (frontend e `/api/*`), sem custo. As respostas passam a trazer `Strict-Transport-Security`, `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` e `X-XSS-Protection`. O achado não aparece na segunda execução do Checkov. Evidência na AWS: [`evidencias/teste-cabecalhos-e-autorizacao.txt`](evidencias/teste-cabecalhos-e-autorizacao.txt) |
 | CKV_AWS_324, CKV2_AWS_27: Aurora sem exportação de logs e de consultas | Média | `aws_rds_cluster.main` | Aceito | Gera volume e custo no CloudWatch. Os acessos ficam registrados nos logs do API Gateway e da Lambda |
 | CKV_AWS_86, CKV_AWS_18: CloudFront e S3 sem log de acesso | Média | CloudFront, `aws_s3_bucket.frontend`, `.artifacts` | Aceito | Os logs de acesso do API Gateway (`/aws/apigateway/dove-api`) registram IP, método, rota e status de cada chamada à API. O conteúdo estático é público por natureza |
 | CKV2_AWS_11: VPC sem flow logs | Média | `aws_vpc.main` | Aceito | Custo de ingestão no CloudWatch. A VPC só tem ENIs da Lambda e o Aurora, com regras restritas por security group |
@@ -95,9 +95,9 @@ Este documento reúne os controles de segurança aplicados (S1 a S8), o tratamen
 ## 4. Pendências antes da tag `entrega-2`
 
 - [x] Corrigir A1 a A4 na API (`dove-integrador-api`, branch `fix/seguranca-usuario`). O aquecimento não precisou mudar.
-- [ ] Fazer merge da branch, gerar o pacote (`mvn package`), copiar para `infra/artifacts/dove-lambda.zip` e aplicar.
+- [x] Fazer merge da branch, gerar o pacote (`mvn package`), copiar para `infra/artifacts/dove-lambda.zip` e aplicar.
 - [x] Corrigir CKV2_AWS_32 (política de cabeçalhos de segurança no CloudFront) e rodar o Checkov de novo. Esse é o "achado corrigido" da demonstração D5.
-- [ ] Aplicar a correção na AWS (`terraform apply`) e salvar a saída de `curl -sI https://<app_url>` mostrando os cabeçalhos em `evidencias/`.
+- [x] Aplicar a correção na AWS (`terraform apply`) e salvar a saída de `curl -sI https://<app_url>` mostrando os cabeçalhos: [`evidencias/teste-cabecalhos-e-autorizacao.txt`](evidencias/teste-cabecalhos-e-autorizacao.txt).
 - [ ] Rodar `gitleaks detect --source .` e salvar em `evidencias/gitleaks.txt`.
 - [ ] Salvar a captura do MFA em `evidencias/mfa.png`.
 - [ ] Registrar em `errata.md` as mudanças na matriz de security groups (porta 5432 no lugar da 3306, saída 443 e 53 removidas do `sg-lambda`, novo `sg-egress-check`).
