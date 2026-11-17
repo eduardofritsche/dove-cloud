@@ -1,5 +1,7 @@
 # ADR-003: Localização do banco de dados
 
+**Status:** substituída quanto ao motor do banco pelo [ADR-004](004-motor-banco-postgresql.md) (Entrega 2). A localização do banco descrita aqui continua válida.
+
 No contexto de uma API Spring Boot com Spring Data JPA escrita para MySQL 8, modelo relacional e uso concentrado no horário de almoço do restaurante (11h00 às 14h30),
 diante da necessidade de persistir os dados sem expô-los à internet, reaproveitar o código existente sem reescrita e pagar apenas pelas horas em que o sistema é usado,
 decidimos usar o Amazon Aurora MySQL-Compatible Serverless v2 (versão 3.08 ou superior, faixa de 0 a 2 ACU, pausa automática após 5 minutos sem conexões), com um único writer na sub-rede privada `priv-a`, DB subnet group cobrindo `priv-a` e `priv-b` e acesso na porta 3306 permitido apenas ao `sg-lambda`,
