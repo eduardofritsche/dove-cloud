@@ -1,0 +1,14 @@
+# Gitleaks 8.30.1 no repositório dove-cloud, 17/11/2026 20:04 (horário de Brasília)
+# Binário oficial (github.com/gitleaks/gitleaks, release v8.30.1), checksum SHA-256 conferido
+
+## 1. Histórico completo do Git (todas as branches)
+# 34 commits no total: 24 com alterações e 10 de merge (sem conteúdo próprio)
+$ gitleaks git . --redact -v
+INF 24 commits scanned.
+INF scanned ~210931 bytes (210.93 KB) in 765ms
+INF no leaks found
+
+## 2. Arquivos atuais da pasta (inclui arquivos não versionados)
+$ gitleaks dir . --redact
+INF scanned ~200001 bytes (200 KB) in 57.9ms
+INF no leaks found
