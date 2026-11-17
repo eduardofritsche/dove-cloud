@@ -70,7 +70,8 @@ O código da aplicação fica em repositórios separados:
 │   ├── arquitetura.md     # Projeto da Entrega 1 (seções 5.1 a 5.11)
 │   ├── errata.md          # Diferenças entre a Entrega 1 e o implantado
 │   ├── seguranca.md       # Controles S1 a S8, achados e ameaças (Entrega 2)
-│   ├── adr/               # Registros de decisão arquitetural (001 a 004)
+│   ├── alta-disponibilidade.md  # Requisitos H1 a H7 e custo da redundância (Entrega 2)
+│   ├── adr/               # Registros de decisão arquitetural (001 a 005)
 │   ├── diagramas/         # Diagrama de arquitetura (.drawio, .png, .pdf)
 │   ├── custos/            # Exports da AWS Pricing Calculator
 │   └── evidencias/        # Relatórios das ferramentas e capturas das demonstrações
@@ -97,10 +98,12 @@ O código da aplicação fica em repositórios separados:
 | [Arquitetura](docs/arquitetura.md) | Projeto da Entrega 1: descrição da aplicação, endereçamento IP, rotas, regras de segurança, tecnologias, custos, riscos |
 | [Errata](docs/errata.md) | O que mudou entre o projeto da Entrega 1 e o implantado |
 | [Segurança](docs/seguranca.md) | Controles S1 a S8, tratamento dos achados do Checkov e da revisão da API, análise de ameaças |
+| [Alta disponibilidade](docs/alta-disponibilidade.md) | Requisitos H1 a H7, pontos únicos de falha e custo da redundância |
 | [ADR-001](docs/adr/001-acesso-administrativo.md) | Estratégia de acesso administrativo |
 | [ADR-002](docs/adr/002-saida-internet-subrede-privada.md) | Saída para a internet da sub-rede privada |
 | [ADR-003](docs/adr/003-localizacao-banco.md) | Localização do banco de dados (motor substituído pelo ADR-004) |
 | [ADR-004](docs/adr/004-motor-banco-postgresql.md) | Motor do banco: Aurora PostgreSQL |
+| [ADR-005](docs/adr/005-estrategia-alta-disponibilidade.md) | Estratégia de alta disponibilidade (NAT e banco) |
 | [Diagrama](docs/diagramas/Diagrama%20de%20arquitetura%20PNG.png) | Diagrama de arquitetura ([fonte editável](docs/diagramas/Diagrama%20de%20arquitetura.drawio)) |
 | [Estimativa de custos](docs/custos/estimativa.pdf) | Export da calculadora oficial da AWS |
 | [Declaração de uso de IA](IA.md) | Ferramentas de IA usadas e o que foi revisado |

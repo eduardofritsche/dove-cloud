@@ -1,0 +1,10 @@
+# ADR-005: Estratégia de alta disponibilidade
+
+**Status:** aceita (Entrega 2). Detalhamento dos requisitos H1 a H7 e do custo em [`alta-disponibilidade.md`](../alta-disponibilidade.md).
+
+No contexto de uma aplicação serverless usada apenas no horário de almoço do restaurante (11h00 às 14h30, 10 a 30 usuários simultâneos), em que CloudFront, S3, API Gateway e Lambda já são operados pela AWS em várias zonas e as ENIs da Lambda já estão em `sa-east-1a` e `sa-east-1b`, mas a instância writer do Aurora e o NAT Gateway existem em uma única zona (`sa-east-1a`),
+diante da necessidade de definir como a arquitetura se comporta na falha de uma zona de disponibilidade e quanto custaria eliminar os pontos únicos de falha restantes,
+decidimos manter a arquitetura implantada como proposta de alta disponibilidade: duas zonas para a camada de aplicação, **NAT Gateway compartilhado** em `pub-a` (criado sob demanda) e **writer único do Aurora** com recuperação manual em `sa-east-1b` pelo Terraform, apoiada no armazenamento multi-AZ do Aurora e no DB subnet group que já cobre as duas zonas,
+e descartamos um NAT Gateway por zona (com nova sub-rede `pub-b` e uma tabela de rotas por sub-rede privada) e uma réplica Aurora Serverless v2 em `sa-east-1b` com failover automático,
+para não praticamente dobrar o custo mensal em operação contínua (de US$ 256,99 para ≈ US$ 511,03, +99%, sendo 72% do aumento a réplica do banco), já que a API não usa o NAT em nenhum momento e a falha de zona só afetaria o restaurante dentro das 3h30 diárias de atendimento,
+aceitando que, se `sa-east-1a` falhar, as funcionalidades que usam o banco ficam indisponíveis por 10 a 15 minutos até a recriação do writer em `sa-east-1b`, que a recuperação depende de um integrante executar o Terraform com o state, que a saída para a internet da sub-rede privada (fluxo 3) fica indisponível enquanto a zona estiver fora, e que essa decisão deve ser revista, começando pela réplica do Aurora, se o restaurante passar a operar o dia todo ou a receber pedidos por canais em que indisponibilidade signifique perda de venda.
