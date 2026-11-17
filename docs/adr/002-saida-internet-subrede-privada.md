@@ -1,5 +1,7 @@
 # ADR-002: Saída para a internet da sub-rede privada
 
+**Status:** aceita (Entrega 1).
+
 No contexto de uma função Lambda conectada a sub-redes privadas acessando o Aurora,
 diante da necessidade de um NAT gerenciado para essa entrega (necessário para conectar as VMs dentro de um sub-rede privada à Internet, mas não usamos VM nesse projeto),
 decidimos usar um NAT Gateway gerenciado em sub-rede pública, criado e destruído pelo Terraform,

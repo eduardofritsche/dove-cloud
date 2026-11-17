@@ -1,5 +1,7 @@
 # ADR-001: Estratégia de acesso administrativo
 
+**Status:** aceita (Entrega 1). Complementada na Entrega 2 pela RDS Data API para acesso administrativo ao banco por IAM (ver [errata](../errata.md), item 4).
+
 No contexto de uma arquitetura serverless na AWS em que os recursos são gerenciados e o banco fica em sub-rede privada sem IP público,
 diante da necessidade de os integrantes terem acesso administrativo aos recursos e conteúdos,
 decidimos garantir o acesso por meio de AWS IAM (Identity and Access Management) e operado via Terraform e AWS CLI,
