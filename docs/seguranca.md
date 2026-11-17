@@ -100,4 +100,4 @@ Este documento reúne os controles de segurança aplicados (S1 a S8), o tratamen
 - [x] Aplicar a correção na AWS (`terraform apply`) e salvar a saída de `curl -sI https://<app_url>` mostrando os cabeçalhos: [`evidencias/teste-cabecalhos-e-autorizacao.txt`](evidencias/teste-cabecalhos-e-autorizacao.txt).
 - [ ] Rodar `gitleaks detect --source .` e salvar em `evidencias/gitleaks.txt`.
 - [ ] Salvar a captura do MFA em `evidencias/mfa.png`.
-- [ ] Registrar em `errata.md` as mudanças na matriz de security groups (porta 5432 no lugar da 3306, saída 443 e 53 removidas do `sg-lambda`, novo `sg-egress-check`).
+- [x] Registrar em `errata.md` as mudanças na matriz de security groups (porta 5432 no lugar da 3306, saída 443 e 53 removidas do `sg-lambda`, novo `sg-egress-check`).
