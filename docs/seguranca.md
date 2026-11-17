@@ -89,15 +89,3 @@ Este documento reúne os controles de segurança aplicados (S1 a S8), o tratamen
 | T6 | Uma dependência vulnerável da API (como o caso Log4Shell) permite executar código na Lambda, e o atacante tenta enviar dados do banco para um servidor externo | Dados do banco | O `sg-lambda` só permite saída para o banco na porta 5432. Mesmo com o NAT ligado, a Lambda da API não alcança a internet (S2) | O código executado ainda pode ler e alterar o banco com as credenciais da aplicação, que é o usuário administrador do Aurora |
 | T7 | Um atacante tenta conectar direto ao PostgreSQL, pela internet ou a partir de outro recurso da VPC | Banco de dados | Aurora sem IP público, em sub-rede privada sem rota de entrada. O `sg-db` só aceita conexões do `sg-lambda` | A Data API está habilitada (`enable_http_endpoint`): quem tiver permissão IAM e o ARN do segredo executa SQL pela internet. Isso se reduz à ameaça T3 |
 | T8 | O `terraform.tfstate`, que contém a senha do banco e a chave do JWT em texto claro, é enviado ao Git ou compartilhado entre integrantes por mensagem | Segredos da aplicação | `*.tfstate` no `.gitignore`. Gitleaks no histórico (S7) | O state fica no disco local de um integrante, sem criptografia nem controle de acesso. Um backend remoto (S3 criptografado) resolveria, ao custo de um bucket criado fora do Terraform |
-
----
-
-## 4. Pendências antes da tag `entrega-2`
-
-- [x] Corrigir A1 a A4 na API (`dove-integrador-api`, branch `fix/seguranca-usuario`). O aquecimento não precisou mudar.
-- [x] Fazer merge da branch, gerar o pacote (`mvn package`), copiar para `infra/artifacts/dove-lambda.zip` e aplicar.
-- [x] Corrigir CKV2_AWS_32 (política de cabeçalhos de segurança no CloudFront) e rodar o Checkov de novo. Esse é o "achado corrigido" da demonstração D5.
-- [x] Aplicar a correção na AWS (`terraform apply`) e salvar a saída de `curl -sI https://<app_url>` mostrando os cabeçalhos: [`evidencias/teste-cabecalhos-e-autorizacao.txt`](evidencias/teste-cabecalhos-e-autorizacao.txt).
-- [x] Rodar o Gitleaks no histórico e salvar em `evidencias/gitleaks.txt` (nenhum segredo encontrado).
-- [x] Salvar a captura do MFA em `evidencias/mfa.jpg`.
-- [x] Registrar em `errata.md` as mudanças na matriz de security groups (porta 5432 no lugar da 3306, saída 443 e 53 removidas do `sg-lambda`, novo `sg-egress-check`).
