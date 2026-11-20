@@ -136,7 +136,7 @@ A saída das três consultas fica em [`evidencias/backup-politica-minima.txt`](e
 } > docs/evidencias/backup-politica-minima.txt
 ```
 
-**O que a política mínima não protege.** A janela de detecção cai de 12 meses para 1 dia. Um erro descoberto 48 horas depois de acontecer não tem como ser desfeito: não existe cópia daquele momento. Também não há cópia fora da região, então uma indisponibilidade regional prolongada deixa o banco inacessível. E, como o ambiente é destruído ao final de cada sessão com `skip_final_snapshot = true`, os backups automáticos são apagados junto com o cluster — comportamento desejado no ambiente acadêmico e inaceitável em produção.
+**O que a política mínima não protege.** A janela de detecção cai de 12 meses para 1 dia. Um erro descoberto 48 horas depois de acontecer não tem como ser desfeito: não existe cópia daquele momento. Também não há cópia fora da região, então uma indisponibilidade regional prolongada deixa o banco inacessível. E, como o `terraform destroy` previsto para depois da apresentação usa `skip_final_snapshot = true`, os backups automáticos são apagados junto com o cluster — comportamento desejado no ambiente acadêmico e inaceitável em produção. Durante o trabalho o ambiente não é destruído entre as sessões (só o NAT é ligado e desligado, seção 5.9 da Entrega 1), e é por isso que já existe cópia automática para a demonstração.
 
 ## B7: Custos
 

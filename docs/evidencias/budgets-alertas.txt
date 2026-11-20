@@ -1,0 +1,27 @@
+# Evidência: alertas de orçamento (AWS Budgets)
+# Coletado em 20/11/2026 19:43 (horário de Brasília) com a AWS CLI. Número da conta substituído por <conta>.
+# Os orçamentos foram criados no console (exceção permitida pelo enunciado), fora do Terraform.
+# A API do AWS Budgets não informa a data de criação; LastUpdatedTime muda a cada recálculo do gasto.
+
+$ aws budgets describe-budgets --account-id <conta>
+------------------------------------------------------------------------------------------
+|                                     DescribeBudgets                                    |
++---------------+------------+---------+--------+----------------------------+-----------+
+| GastoPrevisto | GastoReal  | Limite  | Moeda  |           Nome             |  Periodo  |
++---------------+------------+---------+--------+----------------------------+-----------+
+|  0.62         |  0.606     |  10.0   |  USD   |  alerta-projeto-faculdade  |  MONTHLY  |
+|  0.62         |  0.606     |  60.0   |  USD   |  alertaOrcamento60dol      |  MONTHLY  |
++---------------+------------+---------+--------+----------------------------+-----------+
+
+$ aws budgets describe-notifications-for-budget --account-id <conta> --budget-name alerta-projeto-faculdade
+# Tipo (ACTUAL = gasto real, FORECASTED = previsão), operador, limite em % do orçamento
+ACTUAL	GREATER_THAN	100.0
+ACTUAL	GREATER_THAN	85.0
+FORECASTED	GREATER_THAN	100.0
+
+$ aws budgets describe-notifications-for-budget --account-id <conta> --budget-name alertaOrcamento60dol
+# Tipo (ACTUAL = gasto real, FORECASTED = previsão), operador, limite em % do orçamento
+ACTUAL	GREATER_THAN	100.0
+ACTUAL	GREATER_THAN	85.0
+FORECASTED	GREATER_THAN	100.0
+

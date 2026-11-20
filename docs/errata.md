@@ -173,7 +173,19 @@ Não são divergências da Entrega 1, mas registram como requisitos pensados par
 
 ---
 
-## 11. Documentação
+## 11. Alertas de orçamento
+
+**Entrega 1:** três orçamentos no AWS Budgets, com alertas em US$ 10, 30 e 60 (seção 5.9, plano de controle de custos).
+
+**Implantado:** dois orçamentos mensais criados no console, de **US$ 10** e **US$ 60**, cada um com alerta em 85% e 100% do gasto real e em 100% da previsão ([`evidencias/budgets-alertas.txt`](evidencias/budgets-alertas.txt)). O alerta de US$ 30 não foi criado.
+
+**Motivo:** os alertas de 85% e de previsão de cada orçamento já avisam antes de o limite ser atingido (por exemplo, em US$ 8,50 e US$ 51), o que cobre a faixa intermediária que o alerta de US$ 30 cobriria. O gasto real no mês da implantação ficou abaixo de US$ 1.
+
+**Afeta:** seção 5.9 (plano de controle de custos).
+
+---
+
+## 12. Documentação
 
 - **Diagrama.** O diagrama da Entrega 1 (`docs/diagramas/Diagrama de arquitetura.*`) ainda mostra Aurora MySQL na porta 3306, Lambda com 1536 MB e saída TCP 443, aquecimento às 10h50 e não mostra a função `dove-egress-check` nem a Data API. Os itens 1 a 6 desta errata descrevem as diferenças.
 - **Nomes de arquivo.** O README da Entrega 1 citava `docs/diagramas/arquitetura.drawio` e `arquitetura.png`, mas os arquivos foram entregues como `Diagrama de arquitetura.drawio`, `Diagrama de arquitetura PNG.png` e `Diagrama de arquitetura.pdf`.

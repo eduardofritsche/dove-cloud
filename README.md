@@ -113,7 +113,7 @@ O código da aplicação fica em repositórios separados:
 
 ## Implantação
 
-> **Aviso de custo.** O NAT Gateway (≈ US$ 2,35 por dia ligado em `sa-east-1`, mais tráfego) e o Aurora Serverless v2 (cobrado por ACU-hora quando não está pausado, mais armazenamento) geram custo enquanto existem. Mantenha `enable_nat = false` fora das sessões de teste e da apresentação e execute o `terraform destroy` ao final (ver [Destruição do ambiente](#destruição-do-ambiente)). Antes do primeiro `apply`, crie no console os alertas do AWS Budgets em US$ 10, 30 e 60 (seção 5.9 de `docs/arquitetura.md`).
+> **Aviso de custo.** O NAT Gateway (≈ US$ 2,35 por dia ligado em `sa-east-1`, mais tráfego) e o Aurora Serverless v2 (cobrado por ACU-hora quando não está pausado, mais armazenamento) geram custo enquanto existem. Mantenha `enable_nat = false` fora das sessões de teste e da apresentação e execute o `terraform destroy` ao final (ver [Destruição do ambiente](#destruição-do-ambiente)). Antes do primeiro `apply`, crie no console os alertas do AWS Budgets. A conta do grupo tem orçamentos mensais de US$ 10 e US$ 60, com alerta em 85% e 100% do gasto real e em 100% da previsão ([evidência](docs/evidencias/budgets-alertas.txt)).
 
 ### Pré-requisitos
 
