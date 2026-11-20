@@ -232,13 +232,13 @@ Roteiro da apresentação de 23/11/2026 (10 minutos). Cada integrante conduz pel
 
 | Demo | O que mostrar | Responsável |
 |---|---|---|
-| D1 | `terraform plan` sem alterações e `terraform output` | _a definir_ |
-| D2 | Aplicação em `app_url`: login, cardápio e pedido; `curl -sI` mostrando HTTPS e os cabeçalhos | _a definir_ |
-| D3 | Acesso administrativo sem SSH (ADR-001): identidade IAM com MFA (`aws sts get-caller-identity`), consulta pela Data API e ausência de porta 22 nos security groups | _a definir_ |
-| D4 | `dove-egress-check` devolvendo o IP do NAT; ENIs da Lambda sem IP público; matriz de security groups | _a definir_ |
-| D5 | Segredos no Secrets Manager e fora do Git; relatório do Checkov com um achado corrigido (CKV2_AWS_32) e um aceito; cliente recebendo 403 em rota de funcionário | _a definir_ |
+| D1 | `terraform plan` sem alterações e `terraform output` | Eduardo Henrique Fritsche |
+| D2 | Aplicação em `app_url`: login, cardápio e pedido; `curl -sI` mostrando HTTPS e os cabeçalhos | Eduardo Henrique Fritsche |
+| D3 | Acesso administrativo sem SSH (ADR-001): identidade IAM com MFA (`aws sts get-caller-identity`), consulta pela Data API e ausência de porta 22 nos security groups | Lethicia Marques dos Santos Martins |
+| D4 | `dove-egress-check` devolvendo o IP do NAT; ENIs da Lambda sem IP público; matriz de security groups | Lethicia Marques dos Santos Martins |
+| D5 | Segredos no Secrets Manager e fora do Git; relatório do Checkov com um achado corrigido (CKV2_AWS_32) e um aceito; cliente recebendo 403 em rota de funcionário | Lethicia Marques dos Santos Martins |
 | D6 | Backup: retenção de 1 dia, criptografia ativa e um backup automático existente; política GFS de 12 meses | Lucas Vieira |
-| D7 | Proposta de alta disponibilidade e custo | _a definir_ |
+| D7 | Proposta de alta disponibilidade e custo | Lucas Vieira |
 
 ## Custos
 
