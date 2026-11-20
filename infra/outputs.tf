@@ -1,4 +1,4 @@
-# Outputs da etapa 2 (R11). A URL da aplicação entra na etapa 3, com o CloudFront.
+# Outputs de rede e banco (R11). A URL da aplicação e os demais outputs estão em outputs_app.tf.
 
 output "vpc_id" {
   description = "ID da VPC do projeto."
