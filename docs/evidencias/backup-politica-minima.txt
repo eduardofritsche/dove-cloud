@@ -1,0 +1,30 @@
+# Evidência: política mínima de backup do Aurora (Entrega 2, Parte D, item B6)
+# Coletado em 20/11/2026 13:34 (horário de Brasília) com AWS CLI 2.41.2, cluster dove-aurora em sa-east-1
+
+# aws rds describe-db-clusters --region sa-east-1 --db-cluster-identifier dove-aurora \
+#   --query "DBClusters[0].[BackupRetentionPeriod,PreferredBackupWindow,StorageEncrypted]" --output text
+# Retencao em dias, janela de backup em UTC, criptografia em repouso
+1	06:00-07:00	True
+
+# aws rds describe-db-clusters --region sa-east-1 --db-cluster-identifier dove-aurora \
+#   --query "DBClusters[0].[EarliestRestorableTime,LatestRestorableTime]" --output text
+# Janela de restauracao point-in-time: horario mais antigo e mais recente
+2026-11-17T23:05:01.110000+00:00	2026-11-17T23:05:01.110000+00:00
+
+# aws rds describe-db-cluster-snapshots --region sa-east-1 --db-cluster-identifier dove-aurora \
+#   --snapshot-type automated --query "DBClusterSnapshots[].[DBClusterSnapshotIdentifier,SnapshotCreateTime,StorageEncrypted]" --output text
+# Snapshots automaticos existentes: identificador, horario de criacao, criptografia
+rds:dove-aurora-2026-11-20-06-07	2026-11-20T06:08:14.201000+00:00	True
+
+# aws cloudwatch get-metric-statistics --region sa-east-1 --namespace AWS/RDS --metric-name VolumeBytesUsed \
+#   --dimensions Name=DBClusterIdentifier,Value=dove-aurora --period 3600 --statistics Maximum
+# Volume do cluster, usado como volume inicial em docs/custos/backup-gfs-12-meses.xlsx
+51953664 bytes = 0,048 GB
+
+# Observação sobre a janela de restauração
+# Earliest e Latest aparecem iguais porque o Aurora Serverless v2 estava pausado (min_capacity = 0,
+# conforme o ADR-003). Sem escrita no banco não nasce novo ponto de restauração, e a janela congela
+# no último instante gravado. Com o cluster ativo e tráfego na aplicação, Latest avança e passa a
+# acompanhar o presente com alguns minutos de atraso, que é o RPO declarado na seção B2.
+
+# Capturas do console: backup-politica-minima.png (aba Manutenção e backups) e backup-criptografia.png (chave do KMS)

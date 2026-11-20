@@ -71,7 +71,8 @@ O código da aplicação fica em repositórios separados:
 │   ├── errata.md          # Diferenças entre a Entrega 1 e o implantado
 │   ├── seguranca.md       # Controles S1 a S8, achados e ameaças (Entrega 2)
 │   ├── alta-disponibilidade.md  # Requisitos H1 a H7 e custo da redundância (Entrega 2)
-│   ├── adr/               # Registros de decisão arquitetural (001 a 005)
+│   ├── backup.md          # Inventário, RPO/RTO, política GFS e política mínima (Entrega 2)
+│   ├── adr/               # Registros de decisão arquitetural (001 a 006)
 │   ├── diagramas/         # Diagrama de arquitetura (.drawio, .png, .pdf)
 │   ├── custos/            # Exports da AWS Pricing Calculator
 │   └── evidencias/        # Relatórios das ferramentas e capturas das demonstrações
@@ -99,11 +100,13 @@ O código da aplicação fica em repositórios separados:
 | [Errata](docs/errata.md) | O que mudou entre o projeto da Entrega 1 e o implantado |
 | [Segurança](docs/seguranca.md) | Controles S1 a S8, tratamento dos achados do Checkov e da revisão da API, análise de ameaças |
 | [Alta disponibilidade](docs/alta-disponibilidade.md) | Requisitos H1 a H7, pontos únicos de falha e custo da redundância |
+| [Backup](docs/backup.md) | Inventário, RPO e RTO, política conservadora GFS, política mínima configurada e custos |
 | [ADR-001](docs/adr/001-acesso-administrativo.md) | Estratégia de acesso administrativo |
 | [ADR-002](docs/adr/002-saida-internet-subrede-privada.md) | Saída para a internet da sub-rede privada |
 | [ADR-003](docs/adr/003-localizacao-banco.md) | Localização do banco de dados (motor substituído pelo ADR-004) |
 | [ADR-004](docs/adr/004-motor-banco-postgresql.md) | Motor do banco: Aurora PostgreSQL |
 | [ADR-005](docs/adr/005-estrategia-alta-disponibilidade.md) | Estratégia de alta disponibilidade (NAT e banco) |
+| [ADR-006](docs/adr/006-estrategia-backup.md) | Estratégia de backup (metas, política GFS, mecanismo e local) |
 | [Diagrama](docs/diagramas/Diagrama%20de%20arquitetura%20PNG.png) | Diagrama de arquitetura ([fonte editável](docs/diagramas/Diagrama%20de%20arquitetura.drawio)) |
 | [Estimativa de custos](docs/custos/estimativa.pdf) | Export da calculadora oficial da AWS |
 | [Declaração de uso de IA](IA.md) | Ferramentas de IA usadas e o que foi revisado |
@@ -234,7 +237,7 @@ Roteiro da apresentação de 23/11/2026 (10 minutos). Cada integrante conduz pel
 | D3 | Acesso administrativo sem SSH (ADR-001): identidade IAM com MFA (`aws sts get-caller-identity`), consulta pela Data API e ausência de porta 22 nos security groups | _a definir_ |
 | D4 | `dove-egress-check` devolvendo o IP do NAT; ENIs da Lambda sem IP público; matriz de security groups | _a definir_ |
 | D5 | Segredos no Secrets Manager e fora do Git; relatório do Checkov com um achado corrigido (CKV2_AWS_32) e um aceito; cliente recebendo 403 em rota de funcionário | _a definir_ |
-| D6 | Backup: retenção de 1 dia, criptografia ativa e um backup automático existente; política GFS de 12 meses | _a definir_ |
+| D6 | Backup: retenção de 1 dia, criptografia ativa e um backup automático existente; política GFS de 12 meses | Lucas Vieira |
 | D7 | Proposta de alta disponibilidade e custo | _a definir_ |
 
 ## Custos
