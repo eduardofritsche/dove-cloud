@@ -87,9 +87,11 @@ resource "aws_rds_cluster" "main" {
   enable_http_endpoint = true
 
   serverlessv2_scaling_configuration {
-    min_capacity             = var.aurora_min_capacity
-    max_capacity             = var.aurora_max_capacity
-    seconds_until_auto_pause = var.aurora_seconds_until_auto_pause
+    min_capacity = var.aurora_min_capacity
+    max_capacity = var.aurora_max_capacity
+    # A AWS descarta a pausa quando a capacidade mínima é maior que 0; enviar o valor
+    # nesse caso deixaria o plan sempre com alteração pendente (0 -> 300)
+    seconds_until_auto_pause = var.aurora_min_capacity == 0 ? var.aurora_seconds_until_auto_pause : null
   }
 
   # Ambiente acadêmico: permite o destroy completo, sem snapshot final retido
