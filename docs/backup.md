@@ -14,7 +14,7 @@ O que precisa de backup é apenas o que não pode ser recriado a partir do códi
 | `infra/terraform.tfstate` | **Sim** | Fica local, na máquina de quem executa o `apply`, e não vai para o Git. Perdê-lo não derruba o ambiente, mas quebra o vínculo entre o código e os recursos criados: o `destroy` deixa de funcionar e seria preciso importar cada recurso. Contém a senha do banco e a chave do JWT. |
 | Build do frontend (bucket `dove-frontend-*`) | Não | Reproduzível com `npm ci && npx ng build` a partir do `dove-integrador-web`. |
 | Pacote da Lambda (bucket `dove-artifacts-*`) | Não | Reproduzível com `mvn clean package` a partir do `dove-integrador-api`. |
-| Segredos no Secrets Manager | Não | Gerados pelo Terraform (`random_password`) e reescritos a cada `apply`. Ver a dependência registrada abaixo. |
+| Segredos no Secrets Manager | Não | Gerados uma única vez pelo Terraform (`random_password`) e guardados no state; um ambiente recriado do zero recebe segredos novos. Ver a dependência registrada abaixo. |
 | Logs do CloudWatch | Não | Retenção de 7 dias, sem valor de negócio depois da análise. Não entram no RPO. |
 | Infraestrutura e código da aplicação | Não | Versionados no Git, que é o backup. |
 
@@ -55,7 +55,7 @@ A consequência é direta na política: as gerações semanal e mensal pagam exa
 
 ## B4: Armazenamento
 
-As três gerações ficam em `sa-east-1`, no mesmo *backup vault*. O armazenamento de backup do Aurora é replicado entre as três zonas da região, então a perda de uma zona não compromete nenhuma cópia, e o requisito de manter o backup fora da instância, em outra zona, está atendido.
+As três gerações ficam em `sa-east-1`: a diária no armazenamento de backup do próprio Aurora, e a semanal e a mensal em um *backup vault* do AWS Backup. O armazenamento de backup do Aurora é replicado entre as três zonas da região, então a perda de uma zona não compromete nenhuma cópia, e o requisito de manter o backup fora da instância, em outra zona, está atendido.
 
 Não há cópia em outra região. O AWS Backup permite copiar o *vault* para `us-east-1`, mas isso aproximadamente dobra o custo de armazenamento e acrescenta transferência de dados, para cobrir apenas o cenário de indisponibilidade de uma região inteira. É a mesma conta que o [ADR-005](adr/005-estrategia-alta-disponibilidade.md) já fez ao recusar a réplica do banco em outra zona: um restaurante que atende três horas e meia por dia não perde venda por uma indisponibilidade dessa ordem. Manter a cópia entre regiões aqui contradiria a decisão de disponibilidade que o próprio grupo tomou.
 
