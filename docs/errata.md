@@ -15,11 +15,13 @@ Cada item indica o que foi projetado, o que foi implantado, o motivo e as seçõ
 | Parâmetros | `wait_timeout` (MySQL) | `idle_session_timeout` e `idle_in_transaction_session_timeout` no parameter group `aurora-postgresql17` |
 | Aplicação | Driver MySQL, dialeto MySQL | Driver `org.postgresql.Driver` e `PostgreSQLDialect` no perfil `prod` da API |
 
-**Motivo.** O Free plan da conta AWS do grupo não permite criar clusters Aurora MySQL; o único motor Aurora liberado é o PostgreSQL. A troca preserva o que motivou o ADR-003 (Aurora Serverless v2 com pausa em 0 ACU, banco gerenciado em sub-rede privada) e exigiu apenas troca de driver e dialeto na API, já que o acesso é feito por Spring Data JPA.
+**Motivo.** O Free plan da conta AWS do grupo bloqueou a criação do Aurora MySQL, e o grupo migrou para o PostgreSQL. Em seguida, o Free plan também bloqueou o Aurora PostgreSQL na configuração padrão: só permitia a *express configuration*, fora da VPC, com autenticação apenas por IAM e sem suporte no provider Terraform. A conta passou então para o plano pago, o que liberou os dois motores. O grupo manteve o PostgreSQL porque a aplicação e a infraestrutura já estavam migradas e testadas, e voltar ao MySQL exigiria recriar o banco e repetir os testes sem ganho para o projeto. A troca preserva o que motivou o ADR-003 (Aurora Serverless v2 com pausa em 0 ACU, banco gerenciado em sub-rede privada) e exigiu apenas troca de driver e dialeto na API, já que o acesso é feito por Spring Data JPA.
 
 **Afeta:** ADR-003 (substituído pelo [ADR-004](adr/004-motor-banco-postgresql.md)), seções 5.1 (componentes), 5.2 (fluxo 1), 5.4 (`rt-private`), 5.5 (matriz), 5.6 (banco de dados), 5.9 (custos) e o diagrama.
 
 **Custo.** A estimativa da Entrega 1 foi feita com Aurora MySQL. Em `sa-east-1`, o Aurora Serverless v2 é cobrado por ACU-hora com o mesmo preço para os dois motores compatíveis, e o armazenamento e as E/S também seguem a mesma tabela, então os valores dos cenários A e B continuam válidos.
+
+**Conta.** Com a saída do Free plan, o risco 5 da Entrega 1 (seção 5.9, item 5: suspensão dos serviços quando o crédito acabar) muda de natureza. Os créditos de US$ 120,00 continuam valendo até 22/01/2027, mas o que passar deles é cobrado no cartão em vez de suspender a conta. A mitigação passa a ser os alertas do AWS Budgets ([`evidencias/budgets-alertas.txt`](evidencias/budgets-alertas.txt)), o NAT sob demanda e a pausa automática do Aurora.
 
 ---
 
